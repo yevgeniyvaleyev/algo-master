@@ -1,6 +1,9 @@
 import * as SQLite from 'expo-sqlite';
 
-export const db = SQLite.openDatabaseSync('algomaster.db');
+// Fast Refresh re-runs this module after edits; opening a second connection releases the first one while other
+// modules still hold it ("Cannot use shared object that was already released"). Keep one per JS runtime.
+const cache = globalThis as typeof globalThis & { __algomasterDb?: SQLite.SQLiteDatabase };
+export const db = (cache.__algomasterDb ??= SQLite.openDatabaseSync('algomaster.db'));
 
 export const UNCATEGORIZED_KEY = '__uncategorized__';
 

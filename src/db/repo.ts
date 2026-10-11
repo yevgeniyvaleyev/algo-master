@@ -252,13 +252,22 @@ export async function getTotalLearnEvents(): Promise<number> {
 export async function getNextUnlearned(limit: number): Promise<AlgoRow[]> {
   const rows = await db.getAllAsync<AlgoRow & { topicOrder: number }>(
     `SELECT a.slug, a.leetcode_id AS leetcodeId, a.title, a.difficulty, a.topic_id AS topicId, a.sort_order AS sortOrder,
-            a.leetcode_url AS leetcodeUrl, p.learned_at AS learnedAt, t.sort_order AS topicOrder
+            a.leetcode_url AS leetcodeUrl, NULL AS learnedAt, t.sort_order AS topicOrder
      FROM algos a
      JOIN topics t ON t.id = a.topic_id
-     LEFT JOIN progress p ON p.slug = a.slug`,
+     LEFT JOIN progress p ON p.slug = a.slug
+     WHERE p.slug IS NULL`,
   );
-  return learningOrder(rows)
-    .filter((a) => a.learnedAt == null)
+  // Topic of the most recently learned algorithm: suggestions continue with the next topic.
+  const last = await db.getFirstAsync<{ topicOrder: number }>(
+    `SELECT t.sort_order AS topicOrder
+     FROM learn_log l
+     JOIN algos a ON a.slug = l.slug
+     JOIN topics t ON t.id = a.topic_id
+     ORDER BY l.ts DESC
+     LIMIT 1`,
+  );
+  return learningOrder(rows, last?.topicOrder)
     .slice(0, limit)
     .map(({ topicOrder: _topicOrder, ...a }) => a);
 }

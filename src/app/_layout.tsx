@@ -8,6 +8,7 @@ import { manifest } from '@/content';
 import { migrate } from '@/db/client';
 import { runSeed } from '@/db/repo';
 import { runExpiration } from '@/logic/actions';
+import { ensureNotificationPermission, syncReminders } from '@/notifications/reminders';
 import { useSettings } from '@/store/settings';
 import { useColors, useIsDark } from '@/theme';
 
@@ -16,7 +17,18 @@ async function bootstrap() {
   await runSeed(manifest);
   await useSettings.getState().hydrate();
   await runExpiration();
+  if (useSettings.getState().remindersEnabled) await ensureNotificationPermission();
+  await syncReminders();
 }
+
+/** Settings that change the reminder plan. */
+const REMINDER_KEYS = [
+  'remindersEnabled',
+  'reminderStartHour',
+  'reminderEndHour',
+  'reminderIntervalHours',
+  'dailyGoal',
+] as const;
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -26,9 +38,17 @@ export default function RootLayout() {
   useEffect(() => {
     bootstrap().then(() => setReady(true));
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void runExpiration();
+      if (state !== 'active') return;
+      // The day may have changed, or marks expired, while the app was in the background.
+      void runExpiration().then(syncReminders);
     });
-    return () => sub.remove();
+    const unsubscribe = useSettings.subscribe((next, prev) => {
+      if (REMINDER_KEYS.some((k) => next[k] !== prev[k])) void syncReminders();
+    });
+    return () => {
+      sub.remove();
+      unsubscribe();
+    };
   }, []);
 
   const navTheme = useMemo(() => {

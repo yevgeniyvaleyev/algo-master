@@ -1,4 +1,5 @@
 import * as repo from '@/db/repo';
+import { syncReminders } from '@/notifications/reminders';
 import { useDataVersion } from '@/store/data-version';
 import { useSettings } from '@/store/settings';
 
@@ -14,10 +15,14 @@ function mutation<A extends unknown[]>(fn: (...args: A) => Promise<unknown>) {
   };
 }
 
-export const setLearned = mutation((slug: string, learned: boolean) => repo.setLearned(slug, learned));
+export const setLearned = mutation(async (slug: string, learned: boolean) => {
+  await repo.setLearned(slug, learned);
+  void syncReminders();
+});
 /** Applies several mark/unmark changes at once (bulk mode on the Algorithms list). */
 export const setLearnedMany = mutation(async (changes: { slug: string; learned: boolean }[]) => {
   for (const c of changes) await repo.setLearned(c.slug, c.learned);
+  void syncReminders();
 });
 export const createTopic = mutation(repo.createTopic);
 export const renameTopic = mutation(repo.renameTopic);

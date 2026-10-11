@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { runExpiration } from '@/logic/actions';
+import { ensureNotificationPermission, remindersSupported } from '@/notifications/reminders';
 import { useSettings, type ThemeMode } from '@/store/settings';
 import { useColors } from '@/theme';
+
+const hourLabel = (h: number) => `${String(h).padStart(2, '0')}:00`;
 
 const THEMES: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: 'Авто' },
@@ -18,12 +21,14 @@ function Stepper({
   max,
   onChange,
   suffix,
+  format,
 }: {
   value: number;
   min: number;
   max: number;
   onChange: (v: number) => void;
   suffix?: string;
+  format?: (v: number) => string;
 }) {
   const colors = useColors();
   return (
@@ -32,7 +37,7 @@ function Stepper({
         <Ionicons name="remove-circle-outline" size={26} color={value <= min ? colors.border : colors.primary} />
       </Pressable>
       <Text style={[styles.stepperValue, { color: colors.text }]}>
-        {value}
+        {format ? format(value) : value}
         {suffix}
       </Text>
       <Pressable hitSlop={8} disabled={value >= max} onPress={() => onChange(Math.min(max, value + 1))}>
@@ -115,6 +120,65 @@ export default function SettingsScreen() {
               }}
             />
           </Row>
+        )}
+      </View>
+
+      <Text style={[styles.section, { color: colors.textMuted }]}>Напоминания</Text>
+      <View style={card}>
+        <Row
+          label="Напоминать"
+          hint={
+            remindersSupported
+              ? 'Уведомления, пока дневная цель не выполнена'
+              : 'Недоступно в Expo Go — работает в установленном приложении (APK)'
+          }
+        >
+          <Switch
+            disabled={!remindersSupported}
+            value={remindersSupported && s.remindersEnabled}
+            onValueChange={async (v) => {
+              if (v && !(await ensureNotificationPermission())) {
+                Alert.alert('Нет разрешения', 'Разрешите уведомления для AlgoMaster в настройках Android.', [
+                  { text: 'Отмена', style: 'cancel' },
+                  { text: 'Открыть настройки', onPress: () => Linking.openSettings() },
+                ]);
+                return;
+              }
+              s.update({ remindersEnabled: v });
+            }}
+            trackColor={{ true: colors.primary }}
+          />
+        </Row>
+        {remindersSupported && s.remindersEnabled && (
+          <>
+            <Row label="С">
+              <Stepper
+                value={s.reminderStartHour}
+                min={0}
+                max={s.reminderEndHour}
+                format={hourLabel}
+                onChange={(v) => s.update({ reminderStartHour: v })}
+              />
+            </Row>
+            <Row label="До">
+              <Stepper
+                value={s.reminderEndHour}
+                min={s.reminderStartHour}
+                max={23}
+                format={hourLabel}
+                onChange={(v) => s.update({ reminderEndHour: v })}
+              />
+            </Row>
+            <Row label="Каждые">
+              <Stepper
+                value={s.reminderIntervalHours}
+                min={1}
+                max={6}
+                suffix=" ч."
+                onChange={(v) => s.update({ reminderIntervalHours: v })}
+              />
+            </Row>
+          </>
         )}
       </View>
 

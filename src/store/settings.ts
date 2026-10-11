@@ -13,6 +13,10 @@ export interface Settings {
   theme: ThemeMode;
   blockedPackages: string[];
   codeFontSize: number;
+  remindersEnabled: boolean;
+  reminderStartHour: number;
+  reminderEndHour: number;
+  reminderIntervalHours: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -23,6 +27,10 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   blockedPackages: [],
   codeFontSize: 13,
+  remindersEnabled: true,
+  reminderStartHour: 9,
+  reminderEndHour: 21,
+  reminderIntervalHours: 1,
 };
 
 const KV_KEY = 'settings';

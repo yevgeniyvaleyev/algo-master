@@ -11,30 +11,32 @@ export interface OrderableAlgo {
 }
 
 /**
- * Learning plan: all easy algorithms first, then medium, then hard. Within a difficulty the topics are
- * interleaved round-robin (1st easy of every topic, then 2nd easy of every topic, …), so every group is
- * covered gradually instead of finishing one topic before starting the next.
+ * Learning plan over the algorithms that are still unlearned: topics take turns (round-robin in topic order),
+ * and each turn picks the topic's easiest remaining algorithm (easy → medium → hard, then by position).
+ * So a topic whose easy ones are done contributes a medium one while the next topic may still give an easy one.
  *
- * The order is computed over all algorithms (learned ones included) so the plan stays stable as you progress;
- * filter out learned algorithms afterwards.
+ * `afterTopicOrder` is the topic of the most recently learned algorithm: the plan starts with the topic after it,
+ * so consecutive suggestions move through all topics instead of staying in one.
  */
-export function learningOrder<T extends OrderableAlgo>(algos: readonly T[]): T[] {
-  // Group by (difficulty, topic); an algorithm's position inside its group is its round.
-  const groups = new Map<string, T[]>();
-  for (const a of algos) {
-    const key = `${DIFFICULTY_RANK[a.difficulty]}:${a.topicOrder}`;
-    groups.set(key, [...(groups.get(key) ?? []), a]);
-  }
-  const round = new Map<T, number>();
-  for (const group of groups.values()) {
-    group.sort((x, y) => x.sortOrder - y.sortOrder).forEach((a, i) => round.set(a, i));
+export function learningOrder<T extends OrderableAlgo>(unlearned: readonly T[], afterTopicOrder?: number | null): T[] {
+  const byTopic = new Map<number, T[]>();
+  for (const a of unlearned) byTopic.set(a.topicOrder, [...(byTopic.get(a.topicOrder) ?? []), a]);
+  for (const queue of byTopic.values()) {
+    queue.sort((x, y) => DIFFICULTY_RANK[x.difficulty] - DIFFICULTY_RANK[y.difficulty] || x.sortOrder - y.sortOrder);
   }
 
-  return [...algos].sort(
-    (x, y) =>
-      DIFFICULTY_RANK[x.difficulty] - DIFFICULTY_RANK[y.difficulty] ||
-      round.get(x)! - round.get(y)! ||
-      x.topicOrder - y.topicOrder ||
-      x.sortOrder - y.sortOrder,
-  );
+  const topics = [...byTopic.keys()].sort((a, b) => a - b);
+  if (afterTopicOrder != null) {
+    const start = topics.findIndex((t) => t > afterTopicOrder);
+    if (start > 0) topics.push(...topics.splice(0, start));
+  }
+
+  const plan: T[] = [];
+  while (plan.length < unlearned.length) {
+    for (const t of topics) {
+      const next = byTopic.get(t)!.shift();
+      if (next) plan.push(next);
+    }
+  }
+  return plan;
 }

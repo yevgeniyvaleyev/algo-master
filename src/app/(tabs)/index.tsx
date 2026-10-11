@@ -99,6 +99,8 @@ export default function DashboardScreen() {
             />
           );
         })}
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <Meter label="Всего" value={learned} total={total} color={colors.primary} />
       </View>
 
       {data.next.length > 0 && (
@@ -134,5 +136,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: '700' },
   segment: { flexDirection: 'row', gap: 4 },
   segmentItem: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  divider: { height: StyleSheet.hairlineWidth },
   nextRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
 });
