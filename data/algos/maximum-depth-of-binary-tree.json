@@ -1,0 +1,16 @@
+{
+  "slug": "maximum-depth-of-binary-tree",
+  "leetcodeId": 104,
+  "title": "Maximum Depth of Binary Tree",
+  "difficulty": "easy",
+  "group": "Binary Tree General",
+  "leetcodeUrl": "https://leetcode.com/problems/maximum-depth-of-binary-tree/",
+  "conditionMd": "Given the `root` of a binary tree, return _its maximum depth_.\n\nA binary tree's **maximum depth** is the number of nodes along the longest path from the root node down to the farthest leaf node.\n\n**Example 1:**\n\n![](https://assets.leetcode.com/uploads/2020/11/26/tmp-tree.jpg)\n\n```\nInput: root = [3,9,20,null,null,15,7]\nOutput: 3\n```\n\n**Example 2:**\n\n```\nInput: root = [1,null,2]\nOutput: 2\n```\n\n**Constraints:**\n\n-   The number of nodes in the tree is in the range `[0, 10^4]`.\n-   `-100 <= Node.val <= 100`",
+  "descriptionRuMd": "Дан корень двоичного дерева `root`. Верните _его максимальную глубину_.\n\n**Максимальная глубина** двоичного дерева — это количество узлов на самом длинном пути от корня до самого дальнего листа.\n\n**Пример 1:**\n\n![](https://assets.leetcode.com/uploads/2020/11/26/tmp-tree.jpg)\n\n```\nВход: root = [3,9,20,null,null,15,7]\nВыход: 3\n```\n\n**Пример 2:**\n\n```\nВход: root = [1,null,2]\nВыход: 2\n```\n\n**Ограничения:**\n\n- Количество узлов в дереве — в диапазоне `[0, 10^4]`.\n- `-100 <= Node.val <= 100`",
+  "solutionTs": "function maxDepth(root: TreeNode | null): number {\n  // Пустое дерево имеет глубину 0\n  if (root === null) {\n    return 0;\n  }\n\n  // Глубина дерева = 1 (сам узел) + глубина более глубокого поддерева\n  return 1 + Math.max(maxDepth(root.left), maxDepth(root.right));\n}\n\n// Время: O(n) — каждый узел посещается один раз\n// Память: O(h) — глубина стека рекурсии равна высоте дерева\n",
+  "ideaRuMd": "### Идея: рекурсия снизу вверх (post-order DFS)\n\nГлубина дерева выражается через глубины поддеревьев:\n\n- пустое дерево — `0`;\n- иначе — `1 + max(глубина левого, глубина правого)`.\n\nРекурсия сама спустится до листьев и «соберёт» ответ при возврате.\n\n**Альтернатива — BFS:** обходим дерево по уровням и считаем, сколько уровней прошли. Это полезно, если дерево может быть очень глубоким и рекурсия рискует переполнить стек.\n\n**Сложность:** время `O(n)`, память `O(h)`, где `h` — высота дерева (в худшем случае `O(n)` для вырожденного дерева).",
+  "theory": {
+    "topicKey": "tree-dfs",
+    "titleRu": "Обход дерева в глубину (DFS)"
+  }
+}

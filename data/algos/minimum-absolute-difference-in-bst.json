@@ -1,0 +1,16 @@
+{
+  "slug": "minimum-absolute-difference-in-bst",
+  "leetcodeId": 530,
+  "title": "Minimum Absolute Difference in BST",
+  "difficulty": "easy",
+  "group": "Binary Search Tree",
+  "leetcodeUrl": "https://leetcode.com/problems/minimum-absolute-difference-in-bst/",
+  "conditionMd": "Given the `root` of a Binary Search Tree (BST), return _the minimum absolute difference between the values of any two different nodes in the tree_.\n\n**Example 1:**\n\n![](https://assets.leetcode.com/uploads/2021/02/05/bst1.jpg)\n\n```\nInput: root = [4,2,6,1,3]\nOutput: 1\n```\n\n**Example 2:**\n\n![](https://assets.leetcode.com/uploads/2021/02/05/bst2.jpg)\n\n```\nInput: root = [1,0,48,null,null,12,49]\nOutput: 1\n```\n\n**Constraints:**\n\n-   The number of nodes in the tree is in the range `[2, 10^4]`.\n-   `0 <= Node.val <= 10^5`\n\n**Note:** This question is the same as 783: [https://leetcode.com/problems/minimum-distance-between-bst-nodes/](https://leetcode.com/problems/minimum-distance-between-bst-nodes/)",
+  "descriptionRuMd": "Дан корень двоичного дерева поиска (BST) `root`. Верните _минимальную абсолютную разность между значениями любых двух различных узлов дерева_.\n\n**Пример 1:**\n\n![](https://assets.leetcode.com/uploads/2021/02/05/bst1.jpg)\n\n```\nВход: root = [4,2,6,1,3]\nВыход: 1\n```\n\n**Пример 2:**\n\n![](https://assets.leetcode.com/uploads/2021/02/05/bst2.jpg)\n\n```\nВход: root = [1,0,48,null,null,12,49]\nВыход: 1\n```\n\n**Ограничения:**\n\n- Количество узлов в дереве — в диапазоне `[2, 10^4]`.\n- `0 <= Node.val <= 10^5`\n\n**Примечание:** эта задача совпадает с задачей 783: [https://leetcode.com/problems/minimum-distance-between-bst-nodes/](https://leetcode.com/problems/minimum-distance-between-bst-nodes/)",
+  "solutionTs": "function getMinimumDifference(root: TreeNode | null): number {\n  let best = Infinity;\n  // Значение предыдущего узла в порядке in-order (то есть по возрастанию)\n  let prev: number | null = null;\n\n  const inorder = (node: TreeNode | null): void => {\n    if (node === null) {\n      return;\n    }\n\n    // Сначала все меньшие значения\n    inorder(node.left);\n\n    // node.val и prev — соседи в отсортированном порядке\n    if (prev !== null) {\n      best = Math.min(best, node.val - prev);\n    }\n    prev = node.val;\n\n    // Затем все большие значения\n    inorder(node.right);\n  };\n\n  inorder(root);\n  return best;\n}\n\n// Время: O(n) — один обход дерева\n// Память: O(h) — стек рекурсии\n",
+  "ideaRuMd": "### Идея: in-order обход BST даёт отсортированную последовательность\n\nВ отсортированном массиве минимальная разность всегда достигается на **соседних** элементах: если `a < b < c`, то `c - a` больше и `b - a`, и `c - b`. Значит, сравнивать все пары (`O(n²)`) не нужно.\n\nА отсортированный порядок у BST получается бесплатно — это in-order обход (левое → узел → правое).\n\n1. Обходим дерево in-order, храня значение предыдущего посещённого узла `prev`.\n2. В каждом узле обновляем ответ разностью `node.val - prev` (она неотрицательна, так что `Math.abs` не нужен).\n3. Запоминаем `prev = node.val`.\n\nМассив значений можно не строить — достаточно одной переменной `prev`.\n\n**Сложность:** время `O(n)`, память `O(h)` на стек рекурсии.",
+  "theory": {
+    "topicKey": "bst",
+    "titleRu": "Двоичное дерево поиска"
+  }
+}

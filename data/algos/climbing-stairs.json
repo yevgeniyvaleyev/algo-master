@@ -1,0 +1,16 @@
+{
+  "slug": "climbing-stairs",
+  "leetcodeId": 70,
+  "title": "Climbing Stairs",
+  "difficulty": "easy",
+  "group": "1D DP",
+  "leetcodeUrl": "https://leetcode.com/problems/climbing-stairs/",
+  "conditionMd": "You are climbing a staircase. It takes `n` steps to reach the top.\n\nEach time you can either climb `1` or `2` steps. In how many distinct ways can you climb to the top?\n\n**Example 1:**\n\n```\nInput: n = 2\nOutput: 2\nExplanation: There are two ways to climb to the top.\n1. 1 step + 1 step\n2. 2 steps\n```\n\n**Example 2:**\n\n```\nInput: n = 3\nOutput: 3\nExplanation: There are three ways to climb to the top.\n1. 1 step + 1 step + 1 step\n2. 1 step + 2 steps\n3. 2 steps + 1 step\n```\n\n**Constraints:**\n\n-   `1 <= n <= 45`",
+  "descriptionRuMd": "Вы поднимаетесь по лестнице. Чтобы добраться до вершины, нужно пройти `n` ступенек.\n\nЗа один раз можно подняться на `1` или на `2` ступеньки. Сколькими различными способами можно добраться до вершины?\n\n**Пример 1:**\n\n```\nВход: n = 2\nВыход: 2\nПояснение: есть два способа подняться на вершину.\n1. 1 ступенька + 1 ступенька\n2. 2 ступеньки\n```\n\n**Пример 2:**\n\n```\nВход: n = 3\nВыход: 3\nПояснение: есть три способа подняться на вершину.\n1. 1 ступенька + 1 ступенька + 1 ступенька\n2. 1 ступенька + 2 ступеньки\n3. 2 ступеньки + 1 ступенька\n```\n\n**Ограничения:**\n\n- `1 <= n <= 45`",
+  "solutionTs": "function climbStairs(n: number): number {\n  // dp[i] — число способов дойти до ступеньки i.\n  // На ступеньку i попадаем либо с i - 1 (шаг 1), либо с i - 2 (шаг 2):\n  // dp[i] = dp[i - 1] + dp[i - 2]. Хватит двух последних значений.\n  let prev = 1; // dp[0]: один способ — стоять на месте\n  let curr = 1; // dp[1]: один способ — шаг на 1\n\n  for (let i = 2; i <= n; i++) {\n    const next = prev + curr;\n    // Сдвигаем «окно» из двух значений на одну ступеньку вверх\n    prev = curr;\n    curr = next;\n  }\n\n  return curr;\n}\n\n// Время: O(n)\n// Память: O(1) — вместо массива dp храним два числа\n",
+  "ideaRuMd": "### Идея: ДП, оно же числа Фибоначчи\n\nПосмотрим на **последний шаг**: на ступеньку `n` можно попасть\n\n- со ступеньки `n - 1` шагом на 1,\n- со ступеньки `n - 2` шагом на 2.\n\nЭти множества способов не пересекаются (отличаются последним шагом), поэтому\n\n```\nways(n) = ways(n - 1) + ways(n - 2),  ways(0) = 1, ways(1) = 1\n```\n\nЭто последовательность Фибоначчи: 1, 1, 2, 3, 5, 8, …\n\nНаивная рекурсия пересчитывает одни и те же подзадачи и работает за `O(2^n)`. Считаем снизу вверх: каждое значение зависит только от двух предыдущих, поэтому массив не нужен — хватит двух переменных.\n\nПри `n = 45` ответ `1836311903` — помещается и в `int`, и тем более в `Number`.\n\n**Сложность:** время `O(n)`, память `O(1)`.",
+  "theory": {
+    "topicKey": "dynamic-programming",
+    "titleRu": "Динамическое программирование"
+  }
+}

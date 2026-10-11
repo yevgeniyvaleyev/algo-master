@@ -1,0 +1,16 @@
+{
+  "slug": "length-of-last-word",
+  "leetcodeId": 58,
+  "title": "Length of Last Word",
+  "difficulty": "easy",
+  "group": "Array / String",
+  "leetcodeUrl": "https://leetcode.com/problems/length-of-last-word/",
+  "conditionMd": "Given a string `s` consisting of words and spaces, return _the length of the **last** word in the string._\n\nA **word** is a maximal substring consisting of non-space characters only.\n\n**Example 1:**\n\n```\nInput: s = \"Hello World\"\nOutput: 5\nExplanation: The last word is \"World\" with length 5.\n```\n\n**Example 2:**\n\n```\nInput: s = \"   fly me   to   the moon  \"\nOutput: 4\nExplanation: The last word is \"moon\" with length 4.\n```\n\n**Example 3:**\n\n```\nInput: s = \"luffy is still joyboy\"\nOutput: 6\nExplanation: The last word is \"joyboy\" with length 6.\n```\n\n**Constraints:**\n\n-   `1 <= s.length <= 10^4`\n-   `s` consists of only English letters and spaces `' '`.\n-   There will be at least one word in `s`.",
+  "descriptionRuMd": "Дана строка `s`, состоящая из слов и пробелов. Верните _длину **последнего** слова в строке._\n\n**Слово** — это максимальная подстрока, состоящая только из непробельных символов.\n\n**Пример 1:**\n\n```\nВход: s = \"Hello World\"\nВыход: 5\nПояснение: последнее слово — \"World\" длины 5.\n```\n\n**Пример 2:**\n\n```\nВход: s = \"   fly me   to   the moon  \"\nВыход: 4\nПояснение: последнее слово — \"moon\" длины 4.\n```\n\n**Пример 3:**\n\n```\nВход: s = \"luffy is still joyboy\"\nВыход: 6\nПояснение: последнее слово — \"joyboy\" длины 6.\n```\n\n**Ограничения:**\n\n- `1 <= s.length <= 10^4`\n- `s` состоит только из английских букв и пробелов `' '`.\n- В `s` есть хотя бы одно слово.",
+  "solutionTs": "function lengthOfLastWord(s: string): number {\n  let i = s.length - 1;\n\n  // Пропускаем пробелы в конце строки\n  while (i >= 0 && s[i] === ' ') {\n    i--;\n  }\n\n  // Считаем символы последнего слова, пока не встретим пробел или начало строки\n  let length = 0;\n  while (i >= 0 && s[i] !== ' ') {\n    length++;\n    i--;\n  }\n\n  return length;\n}\n\n// Время: O(n) в худшем случае, но смотрим только хвост строки\n// Память: O(1) — без split и новых строк\n",
+  "ideaRuMd": "### Идея: сканировать строку с конца\n\nНас интересует только **последнее** слово, поэтому идти с начала незачем.\n\n1. Ставим указатель `i` на последний символ и пропускаем хвостовые пробелы.\n2. Теперь `i` стоит на последней букве последнего слова. Двигаемся влево, пока не встретим пробел или начало строки, считая символы.\n\nКороткий вариант — `s.trimEnd().split(' ').pop()!.length`, но он создаёт новые строки и массив: `O(n)` памяти. Сканирование с конца обходится `O(1)` памяти и просматривает только хвост строки.\n\n**Сложность:** время `O(n)` в худшем случае, память `O(1)`.",
+  "theory": {
+    "topicKey": "arrays-strings",
+    "titleRu": "Массивы и строки"
+  }
+}

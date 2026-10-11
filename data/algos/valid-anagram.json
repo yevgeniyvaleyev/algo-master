@@ -1,0 +1,16 @@
+{
+  "slug": "valid-anagram",
+  "leetcodeId": 242,
+  "title": "Valid Anagram",
+  "difficulty": "easy",
+  "group": "Hashmap",
+  "leetcodeUrl": "https://leetcode.com/problems/valid-anagram/",
+  "conditionMd": "Given two strings `s` and `t`, return `true` if `t` is an anagram of `s`, and `false` otherwise.\n\n**Example 1:**\n\n**Input:** s = \"anagram\", t = \"nagaram\"\n\n**Output:** true\n\n**Example 2:**\n\n**Input:** s = \"rat\", t = \"car\"\n\n**Output:** false\n\n**Constraints:**\n\n-   `1 <= s.length, t.length <= 5 * 10^4`\n-   `s` and `t` consist of lowercase English letters.\n\n**Follow up:** What if the inputs contain Unicode characters? How would you adapt your solution to such a case?",
+  "descriptionRuMd": "Даны две строки `s` и `t`. Верните `true`, если `t` — анаграмма `s`, и `false` в противном случае.\n\n**Пример 1:**\n\n```\nВход: s = \"anagram\", t = \"nagaram\"\nВыход: true\n```\n\n**Пример 2:**\n\n```\nВход: s = \"rat\", t = \"car\"\nВыход: false\n```\n\n**Ограничения:**\n\n- `1 <= s.length, t.length <= 5 * 10^4`\n- `s` и `t` состоят из строчных латинских букв.\n\n**Дополнительно:** что, если входные строки содержат символы Unicode? Как адаптировать решение для такого случая?",
+  "solutionTs": "function isAnagram(s: string, t: string): boolean {\n  // Анаграммы обязаны иметь одинаковую длину\n  if (s.length !== t.length) return false;\n\n  // Разница частот: +1 за букву в s, -1 за букву в t\n  const count = new Array<number>(26).fill(0);\n  for (let i = 0; i < s.length; i++) {\n    count[s.charCodeAt(i) - 97]++;\n    count[t.charCodeAt(i) - 97]--;\n  }\n\n  // Анаграмма — если все разницы нулевые\n  return count.every((c) => c === 0);\n}\n\n// Время: O(n)\n// Память: O(1) — массив на 26 букв\n",
+  "ideaRuMd": "### Идея: сравнить частоты букв\n\n`t` — анаграмма `s`, если в обеих строках **одинаковый набор букв с одинаковыми количествами**.\n\n1. Если длины разные — сразу `false`.\n2. Заводим массив `count[26]`. За один проход прибавляем 1 для буквы из `s` и вычитаем 1 для буквы из `t` на той же позиции.\n3. Если в конце все счётчики равны нулю — строки анаграммы.\n\nВариант попроще — отсортировать обе строки и сравнить, но это `O(n log n)`.\n\n**Сложность:** время `O(n)`, память `O(1)`.\n\n### Follow-up: Unicode\n\nМассив на 26 элементов уже не подходит — используем `Map<string, number>`. Перебирать строку нужно по **кодовым точкам** (`for (const ch of s)`), а не по индексам, иначе символы вне BMP (например, эмодзи) разобьются на две половинки суррогатной пары. Для полной корректности строки можно предварительно нормализовать (`s.normalize()`), чтобы «é» как одна кодовая точка и как «e + ударение» считались одинаковыми.",
+  "theory": {
+    "topicKey": "hash-map",
+    "titleRu": "Хеш-таблица"
+  }
+}

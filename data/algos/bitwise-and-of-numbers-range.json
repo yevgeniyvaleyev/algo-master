@@ -1,0 +1,16 @@
+{
+  "slug": "bitwise-and-of-numbers-range",
+  "leetcodeId": 201,
+  "title": "Bitwise AND of Numbers Range",
+  "difficulty": "medium",
+  "group": "Bit Manipulation",
+  "leetcodeUrl": "https://leetcode.com/problems/bitwise-and-of-numbers-range/",
+  "conditionMd": "Given two integers `left` and `right` that represent the range `[left, right]`, return _the bitwise AND of all numbers in this range, inclusive_.\n\n**Example 1:**\n\n```\nInput: left = 5, right = 7\nOutput: 4\n```\n\n**Example 2:**\n\n```\nInput: left = 0, right = 0\nOutput: 0\n```\n\n**Example 3:**\n\n```\nInput: left = 1, right = 2147483647\nOutput: 0\n```\n\n**Constraints:**\n\n-   `0 <= left <= right <= 2^31 - 1`",
+  "descriptionRuMd": "Даны два целых числа `left` и `right`, задающие диапазон `[left, right]`. Верните _побитовое И всех чисел этого диапазона включительно_.\n\n**Пример 1:**\n\n```\nВход: left = 5, right = 7\nВыход: 4\n```\n\n**Пример 2:**\n\n```\nВход: left = 0, right = 0\nВыход: 0\n```\n\n**Пример 3:**\n\n```\nВход: left = 1, right = 2147483647\nВыход: 0\n```\n\n**Ограничения:**\n\n- `0 <= left <= right <= 2^31 - 1`",
+  "solutionTs": "function rangeBitwiseAnd(left: number, right: number): number {\n  // Ответ — общий двоичный префикс left и right, дополненный нулями.\n  // Сдвигаем оба числа вправо, пока они не совпадут\n  let shift = 0;\n  while (left < right) {\n    left >>= 1;\n    right >>= 1;\n    shift++;\n  }\n\n  // Возвращаем общий префикс на место; младшие shift битов — нули\n  return left << shift;\n}\n\n// Время: O(log right) — не больше 31 итерации\n// Память: O(1)\n",
+  "ideaRuMd": "### Идея: общий двоичный префикс\n\nПеребирать все числа диапазона нельзя — их может быть `2^31`.\n\nЗапишем `left` и `right` в двоичном виде и найдём их **общий префикс** (старшие биты, где они совпадают). Пусть в первом отличающемся бите у `left` стоит 0, а у `right` — 1. Тогда в диапазоне есть число вида `префикс 0 111…1` и следующее за ним `префикс 1 000…0`. Их И обнуляет этот бит и все младшие. А биты префикса одинаковы у всех чисел диапазона, поэтому сохраняются.\n\nПример: `5 = 101`, `7 = 111`. Общий префикс — `1`, остальные биты обнуляются: `100 = 4`.\n\nКак найти префикс: сдвигаем оба числа вправо, пока они не станут равны, считая сдвиги, и сдвигаем результат обратно влево.\n\nКрайние случаи: `left === right` — цикл не выполняется, ответ `left`; `left = 0` — ответ `0`. Значения не превышают `2^31 - 1`, поэтому 32-битные сдвиги JS безопасны.\n\n**Сложность:** время `O(log right)`, память `O(1)`.\n\n### Альтернатива (приём Кернигана)\n\n`while (left < right) right &= right - 1;` — каждый шаг убирает младшую единицу `right`, пока он не станет `<= left`. Ответ — `right`.",
+  "theory": {
+    "topicKey": "bit-manipulation",
+    "titleRu": "Битовые операции"
+  }
+}

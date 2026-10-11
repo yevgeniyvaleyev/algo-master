@@ -1,0 +1,16 @@
+{
+  "slug": "longest-common-prefix",
+  "leetcodeId": 14,
+  "title": "Longest Common Prefix",
+  "difficulty": "easy",
+  "group": "Array / String",
+  "leetcodeUrl": "https://leetcode.com/problems/longest-common-prefix/",
+  "conditionMd": "Write a function to find the longest common prefix string amongst an array of strings.\n\nIf there is no common prefix, return an empty string `\"\"`.\n\n**Example 1:**\n\n```\nInput: strs = [\"flower\",\"flow\",\"flight\"]\nOutput: \"fl\"\n```\n\n**Example 2:**\n\n```\nInput: strs = [\"dog\",\"racecar\",\"car\"]\nOutput: \"\"\nExplanation: There is no common prefix among the input strings.\n```\n\n**Constraints:**\n\n-   `1 <= strs.length <= 200`\n-   `0 <= strs[i].length <= 200`\n-   `strs[i]` consists of only lowercase English letters if it is non-empty.",
+  "descriptionRuMd": "Напишите функцию, которая находит самый длинный общий префикс среди массива строк.\n\nЕсли общего префикса нет, верните пустую строку `\"\"`.\n\n**Пример 1:**\n\n```\nВход: strs = [\"flower\",\"flow\",\"flight\"]\nВыход: \"fl\"\n```\n\n**Пример 2:**\n\n```\nВход: strs = [\"dog\",\"racecar\",\"car\"]\nВыход: \"\"\nПояснение: у входных строк нет общего префикса.\n```\n\n**Ограничения:**\n\n- `1 <= strs.length <= 200`\n- `0 <= strs[i].length <= 200`\n- `strs[i]` состоит только из строчных английских букв, если она непустая.",
+  "solutionTs": "function longestCommonPrefix(strs: string[]): string {\n  const first = strs[0];\n\n  // Вертикальное сканирование: проверяем i-й символ сразу во всех строках\n  for (let i = 0; i < first.length; i++) {\n    const ch = first[i];\n\n    for (let j = 1; j < strs.length; j++) {\n      // Строка закончилась или символ не совпал — префикс найден\n      if (i >= strs[j].length || strs[j][i] !== ch) {\n        return first.slice(0, i);\n      }\n    }\n  }\n\n  // Первая строка целиком является префиксом всех остальных\n  return first;\n}\n\n// Время: O(S), где S — суммарная длина строк (в худшем случае)\n// Память: O(1) кроме строки-ответа\n",
+  "ideaRuMd": "### Идея: вертикальное сканирование\n\nОбщий префикс не длиннее любой из строк, в том числе первой. Поэтому берём `strs[0]` как эталон и проверяем символы **по столбцам**:\n\n1. Для позиции `i = 0, 1, 2, ...` берём символ `strs[0][i]`.\n2. Сверяем его с `i`-м символом каждой остальной строки.\n3. Как только какая-то строка закончилась или символ не совпал — ответ `strs[0].slice(0, i)`.\n4. Если первая строка пройдена целиком — она и есть общий префикс.\n\nПлюс вертикального подхода: остановка происходит на **первом** расхождении, и мы не читаем лишние символы длинных строк.\n\n**Альтернативы:**\n- *Горизонтально:* префикс = `strs[0]`, затем укорачиваем его, пока очередная строка с него не начинается.\n- *Через сортировку:* после сортировки достаточно сравнить первую и последнюю строки — `O(S log n)`.\n\n**Сложность:** время `O(S)`, где `S` — суммарная длина строк; память `O(1)` (не считая ответа).",
+  "theory": {
+    "topicKey": "arrays-strings",
+    "titleRu": "Массивы и строки"
+  }
+}

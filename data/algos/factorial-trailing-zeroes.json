@@ -1,0 +1,16 @@
+{
+  "slug": "factorial-trailing-zeroes",
+  "leetcodeId": 172,
+  "title": "Factorial Trailing Zeroes",
+  "difficulty": "medium",
+  "group": "Math",
+  "leetcodeUrl": "https://leetcode.com/problems/factorial-trailing-zeroes/",
+  "conditionMd": "Given an integer `n`, return _the number of trailing zeroes in_ `n!`.\n\nNote that `n! = n * (n - 1) * (n - 2) * ... * 3 * 2 * 1`.\n\n**Example 1:**\n\n```\nInput: n = 3\nOutput: 0\nExplanation: 3! = 6, no trailing zero.\n```\n\n**Example 2:**\n\n```\nInput: n = 5\nOutput: 1\nExplanation: 5! = 120, one trailing zero.\n```\n\n**Example 3:**\n\n```\nInput: n = 0\nOutput: 0\n```\n\n**Constraints:**\n\n-   `0 <= n <= 10^4`\n\n**Follow up:** Could you write a solution that works in logarithmic time complexity?",
+  "descriptionRuMd": "Дано целое число `n`. Верните _количество нулей в конце числа_ `n!`.\n\nНапомним, что `n! = n * (n - 1) * (n - 2) * ... * 3 * 2 * 1`.\n\n**Пример 1:**\n\n```\nВход: n = 3\nВыход: 0\nПояснение: 3! = 6, нулей в конце нет.\n```\n\n**Пример 2:**\n\n```\nВход: n = 5\nВыход: 1\nПояснение: 5! = 120, один ноль в конце.\n```\n\n**Пример 3:**\n\n```\nВход: n = 0\nВыход: 0\n```\n\n**Ограничения:**\n\n- `0 <= n <= 10^4`\n\n**Дополнительно:** сможете ли вы написать решение с логарифмической сложностью?",
+  "solutionTs": "function trailingZeroes(n: number): number {\n  // Каждый ноль в конце — это множитель 10 = 2 * 5.\n  // Двоек среди множителей n! всегда больше, чем пятёрок,\n  // поэтому ответ — количество пятёрок в разложении n!\n  let count = 0;\n\n  while (n > 0) {\n    // n / 5 — сколько чисел до n делятся на 5,\n    // на следующем шаге — на 25, затем на 125 и т. д.\n    n = Math.floor(n / 5);\n    count += n;\n  }\n\n  return count;\n}\n\n// Время: O(log n) — по основанию 5\n// Память: O(1)\n",
+  "ideaRuMd": "### Идея: считаем множители 5 (формула Лежандра)\n\nСчитать сам `n!` бессмысленно: уже `25!` не помещается в точную арифметику `number`.\n\nНоль в конце появляется от множителя `10 = 2 · 5`. Чётных чисел среди `1..n` гораздо больше, чем кратных 5, поэтому количество нулей равно **количеству пятёрок** в разложении `n!` на простые множители.\n\nСколько пятёрок:\n- каждое число, кратное 5, даёт одну: `⌊n / 5⌋`;\n- кратное 25 даёт ещё одну: `⌊n / 25⌋`;\n- кратное 125 — ещё одну, и так далее.\n\nИтого `⌊n/5⌋ + ⌊n/25⌋ + ⌊n/125⌋ + …`. В коде вместо роста делителя делим само `n` на 5: `⌊⌊n/5⌋/5⌋ = ⌊n/25⌋`, и переполнения делителя не бывает.\n\nПример: `n = 25` → `5 + 1 = 6` нулей. Наивный подсчёт «по одному на каждое кратное 5» дал бы 5 — типичная ошибка.\n\n**Сложность:** время `O(log₅ n)`, память `O(1)`.",
+  "theory": {
+    "topicKey": "math",
+    "titleRu": "Математика"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "slug": "symmetric-tree",
+  "leetcodeId": 101,
+  "title": "Symmetric Tree",
+  "difficulty": "easy",
+  "group": "Binary Tree General",
+  "leetcodeUrl": "https://leetcode.com/problems/symmetric-tree/",
+  "conditionMd": "Given the `root` of a binary tree, _check whether it is a mirror of itself_ (i.e., symmetric around its center).\n\n**Example 1:**\n\n![](https://assets.leetcode.com/uploads/2021/02/19/symtree1.jpg)\n\n```\nInput: root = [1,2,2,3,4,4,3]\nOutput: true\n```\n\n**Example 2:**\n\n![](https://assets.leetcode.com/uploads/2021/02/19/symtree2.jpg)\n\n```\nInput: root = [1,2,2,null,3,null,3]\nOutput: false\n```\n\n**Constraints:**\n\n-   The number of nodes in the tree is in the range `[1, 1000]`.\n-   `-100 <= Node.val <= 100`\n\n**Follow up:** Could you solve it both recursively and iteratively?",
+  "descriptionRuMd": "Дан корень двоичного дерева `root`. _Проверьте, является ли дерево зеркальным отражением самого себя_ (то есть симметричным относительно центра).\n\n**Пример 1:**\n\n![](https://assets.leetcode.com/uploads/2021/02/19/symtree1.jpg)\n\n```\nВход: root = [1,2,2,3,4,4,3]\nВыход: true\n```\n\n**Пример 2:**\n\n![](https://assets.leetcode.com/uploads/2021/02/19/symtree2.jpg)\n\n```\nВход: root = [1,2,2,null,3,null,3]\nВыход: false\n```\n\n**Ограничения:**\n\n- Количество узлов в дереве — в диапазоне `[1, 1000]`.\n- `-100 <= Node.val <= 100`\n\n**Дополнительно:** сможете решить задачу и рекурсивно, и итеративно?",
+  "solutionTs": "function isSymmetric(root: TreeNode | null): boolean {\n  // Проверяет, что поддеревья a и b — зеркальные отражения друг друга\n  const isMirror = (a: TreeNode | null, b: TreeNode | null): boolean => {\n    // Оба пусты — зеркальны\n    if (a === null && b === null) {\n      return true;\n    }\n    // Пусто только одно — симметрии нет\n    if (a === null || b === null) {\n      return false;\n    }\n    // Значения равны, а дети сравниваются «крест-накрест»:\n    // внешние (a.left и b.right) и внутренние (a.right и b.left)\n    return a.val === b.val && isMirror(a.left, b.right) && isMirror(a.right, b.left);\n  };\n\n  // Дерево симметрично, если его левое поддерево — зеркало правого\n  return root === null || isMirror(root.left, root.right);\n}\n\n// Время: O(n) — каждый узел участвует в одном сравнении\n// Память: O(h) — стек рекурсии\n",
+  "ideaRuMd": "### Идея: сравнить левое поддерево с отражённым правым\n\nДерево симметрично, если левое поддерево корня — зеркальное отражение правого. Два поддерева `a` и `b` зеркальны, когда:\n\n1. оба пусты — да;\n2. пусто только одно — нет;\n3. `a.val === b.val`, и при этом зеркальны **внешние** пары `(a.left, b.right)` и **внутренние** `(a.right, b.left)`.\n\nЭто та же схема, что в Same Tree, только дети сравниваются «крест-накрест».\n\n**Итеративный вариант:** кладём в очередь пары узлов `[root.left, root.right]`. Достаём пару, проверяем пункты 1–3, и вместо рекурсии добавляем в очередь `[a.left, b.right]` и `[a.right, b.left]`.\n\n**Сложность:** время `O(n)`, память `O(h)` для рекурсии (или `O(w)` для очереди).",
+  "theory": {
+    "topicKey": "tree-dfs",
+    "titleRu": "Обход дерева в глубину (DFS)"
+  }
+}

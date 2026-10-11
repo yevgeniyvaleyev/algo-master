@@ -1,0 +1,16 @@
+{
+  "slug": "binary-tree-level-order-traversal",
+  "leetcodeId": 102,
+  "title": "Binary Tree Level Order Traversal",
+  "difficulty": "medium",
+  "group": "Binary Tree BFS",
+  "leetcodeUrl": "https://leetcode.com/problems/binary-tree-level-order-traversal/",
+  "conditionMd": "Given the `root` of a binary tree, return _the level order traversal of its nodes' values_. (i.e., from left to right, level by level).\n\n**Example 1:**\n\n![](https://assets.leetcode.com/uploads/2021/02/19/tree1.jpg)\n\n```\nInput: root = [3,9,20,null,null,15,7]\nOutput: [[3],[9,20],[15,7]]\n```\n\n**Example 2:**\n\n```\nInput: root = [1]\nOutput: [[1]]\n```\n\n**Example 3:**\n\n```\nInput: root = []\nOutput: []\n```\n\n**Constraints:**\n\n-   The number of nodes in the tree is in the range `[0, 2000]`.\n-   `-1000 <= Node.val <= 1000`",
+  "descriptionRuMd": "Дан корень `root` двоичного дерева. Верните _обход его узлов по уровням_ (то есть слева направо, уровень за уровнем).\n\n**Пример 1:**\n\n![](https://assets.leetcode.com/uploads/2021/02/19/tree1.jpg)\n\n```\nВход: root = [3,9,20,null,null,15,7]\nВыход: [[3],[9,20],[15,7]]\n```\n\n**Пример 2:**\n\n```\nВход: root = [1]\nВыход: [[1]]\n```\n\n**Пример 3:**\n\n```\nВход: root = []\nВыход: []\n```\n\n**Ограничения:**\n\n- Количество узлов в дереве — в диапазоне `[0, 2000]`.\n- `-1000 <= Node.val <= 1000`",
+  "solutionTs": "function levelOrder(root: TreeNode | null): number[][] {\n  const result: number[][] = [];\n  if (root === null) return result;\n\n  // Очередь на массиве с указателем головы: shift() был бы O(n)\n  const queue: TreeNode[] = [root];\n  let head = 0;\n\n  while (head < queue.length) {\n    // Все узлы между head и концом очереди — ровно текущий уровень\n    const levelSize = queue.length - head;\n    const level: number[] = [];\n\n    for (let i = 0; i < levelSize; i++) {\n      const node = queue[head++];\n      level.push(node.val);\n      // Дети попадают в конец очереди — это уже следующий уровень\n      if (node.left !== null) queue.push(node.left);\n      if (node.right !== null) queue.push(node.right);\n    }\n\n    result.push(level);\n  }\n\n  return result;\n}\n\n// Время: O(n) — каждый узел попадает в очередь один раз\n// Память: O(n) — очередь и ответ\n",
+  "ideaRuMd": "### Идея: BFS с подсчётом размера уровня\n\nОбход в ширину с очередью посещает узлы ровно в нужном порядке: по уровням, слева направо. Осталось только **разделить** их на уровни.\n\nПриём: перед обработкой уровня запоминаем, сколько узлов сейчас в очереди, — `levelSize`. Это в точности узлы текущего уровня: дети, которых мы добавим, окажутся **за** ними. Извлекаем ровно `levelSize` узлов, складываем их значения в массив уровня, а детей — в очередь.\n\n**Про очередь в JS:** `Array.prototype.shift()` работает за `O(n)`, поэтому вместо него двигаем указатель `head`. Другой вариант — хранить текущий уровень отдельным массивом и строить следующий в новом массиве.\n\n### Альтернатива: DFS с глубиной\n\nРекурсивно обходим дерево (сначала левое поддерево), передавая `depth`. Если `result[depth]` ещё нет — создаём, затем добавляем `node.val` в `result[depth]`. Порядок внутри уровня сохраняется, потому что левые узлы посещаются раньше правых.\n\n**Сложность:** время `O(n)`, память `O(n)`.",
+  "theory": {
+    "topicKey": "tree-bfs",
+    "titleRu": "Обход дерева в ширину (BFS)"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "slug": "ransom-note",
+  "leetcodeId": 383,
+  "title": "Ransom Note",
+  "difficulty": "easy",
+  "group": "Hashmap",
+  "leetcodeUrl": "https://leetcode.com/problems/ransom-note/",
+  "conditionMd": "Given two strings `ransomNote` and `magazine`, return `true` _if_ `ransomNote` _can be constructed by using the letters from_ `magazine` _and_ `false` _otherwise_.\n\nEach letter in `magazine` can only be used once in `ransomNote`.\n\n**Example 1:**\n\n```\nInput: ransomNote = \"a\", magazine = \"b\"\nOutput: false\n```\n\n**Example 2:**\n\n```\nInput: ransomNote = \"aa\", magazine = \"ab\"\nOutput: false\n```\n\n**Example 3:**\n\n```\nInput: ransomNote = \"aa\", magazine = \"aab\"\nOutput: true\n```\n\n**Constraints:**\n\n-   `1 <= ransomNote.length, magazine.length <= 10^5`\n-   `ransomNote` and `magazine` consist of lowercase English letters.",
+  "descriptionRuMd": "Даны две строки `ransomNote` и `magazine`. Верните `true`, если `ransomNote` _можно составить из букв_ `magazine`, и `false` в противном случае.\n\nКаждую букву из `magazine` можно использовать в `ransomNote` только один раз.\n\n**Пример 1:**\n\n```\nВход: ransomNote = \"a\", magazine = \"b\"\nВыход: false\n```\n\n**Пример 2:**\n\n```\nВход: ransomNote = \"aa\", magazine = \"ab\"\nВыход: false\n```\n\n**Пример 3:**\n\n```\nВход: ransomNote = \"aa\", magazine = \"aab\"\nВыход: true\n```\n\n**Ограничения:**\n\n- `1 <= ransomNote.length, magazine.length <= 10^5`\n- `ransomNote` и `magazine` состоят из строчных латинских букв.",
+  "solutionTs": "function canConstruct(ransomNote: string, magazine: string): boolean {\n  // Букв в записке больше, чем в журнале, — точно не хватит\n  if (ransomNote.length > magazine.length) return false;\n\n  // Сколько раз каждая из 26 букв есть в журнале\n  const count = new Array<number>(26).fill(0);\n  for (let i = 0; i < magazine.length; i++) {\n    count[magazine.charCodeAt(i) - 97]++;\n  }\n\n  // «Тратим» буквы на записку\n  for (let i = 0; i < ransomNote.length; i++) {\n    const idx = ransomNote.charCodeAt(i) - 97;\n    count[idx]--;\n    // Ушли в минус — этой буквы в журнале не хватает\n    if (count[idx] < 0) return false;\n  }\n\n  return true;\n}\n\n// Время: O(m + n), где m и n — длины строк\n// Память: O(1) — массив на 26 букв\n",
+  "ideaRuMd": "### Идея: подсчёт частот\n\nЗаписку можно составить, если **каждая буква** встречается в журнале не реже, чем в записке.\n\n1. Считаем, сколько раз каждая буква есть в `magazine`. Алфавит — 26 строчных латинских букв, поэтому хватит массива `count[26]` вместо `Map`.\n2. Идём по `ransomNote` и уменьшаем счётчик соответствующей буквы.\n3. Если счётчик стал отрицательным — буквы не хватило, ответ `false`.\n4. Дошли до конца — ответ `true`.\n\nБыстрая отсечка: если записка длиннее журнала, ответ сразу `false`.\n\n**Сложность:** время `O(m + n)`, память `O(1)` (фиксированный алфавит).",
+  "theory": {
+    "topicKey": "hash-map",
+    "titleRu": "Хеш-таблица"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "slug": "add-binary",
+  "leetcodeId": 67,
+  "title": "Add Binary",
+  "difficulty": "easy",
+  "group": "Bit Manipulation",
+  "leetcodeUrl": "https://leetcode.com/problems/add-binary/",
+  "conditionMd": "Given two binary strings `a` and `b`, return _their sum as a binary string_.\n\n**Example 1:**\n\n```\nInput: a = \"11\", b = \"1\"\nOutput: \"100\"\n```\n\n**Example 2:**\n\n```\nInput: a = \"1010\", b = \"1011\"\nOutput: \"10101\"\n```\n\n**Constraints:**\n\n-   `1 <= a.length, b.length <= 10^4`\n-   `a` and `b` consist only of `'0'` or `'1'` characters.\n-   Each string does not contain leading zeros except for the zero itself.",
+  "descriptionRuMd": "Даны две двоичные строки `a` и `b`. Верните _их сумму в виде двоичной строки_.\n\n**Пример 1:**\n\n```\nВход: a = \"11\", b = \"1\"\nВыход: \"100\"\n```\n\n**Пример 2:**\n\n```\nВход: a = \"1010\", b = \"1011\"\nВыход: \"10101\"\n```\n\n**Ограничения:**\n\n- `1 <= a.length, b.length <= 10^4`\n- `a` и `b` состоят только из символов `'0'` и `'1'`.\n- Ни одна строка не содержит ведущих нулей, кроме самого числа ноль.",
+  "solutionTs": "function addBinary(a: string, b: string): string {\n  // Складываем «столбиком» с младших разрядов (с конца строк)\n  let i = a.length - 1;\n  let j = b.length - 1;\n  let carry = 0;\n  const bits: number[] = [];\n\n  // Продолжаем, пока остались разряды хотя бы в одной строке или есть перенос\n  while (i >= 0 || j >= 0 || carry > 0) {\n    // Отсутствующий разряд считаем нулём\n    const x = i >= 0 ? a.charCodeAt(i) - 48 : 0; // 48 — код символа '0'\n    const y = j >= 0 ? b.charCodeAt(j) - 48 : 0;\n\n    const sum = x + y + carry; // от 0 до 3\n    bits.push(sum & 1); // младший бит суммы — цифра текущего разряда\n    carry = sum >> 1; // старший бит — перенос в следующий разряд\n\n    i--;\n    j--;\n  }\n\n  // Цифры собраны от младших к старшим — разворачиваем\n  return bits.reverse().join('');\n}\n\n// Время: O(max(|a|, |b|))\n// Память: O(max(|a|, |b|)) — под результат\n",
+  "ideaRuMd": "### Идея: сложение столбиком с переносом\n\nСтроки могут быть длиной до `10^4` символов, поэтому `parseInt(a, 2) + parseInt(b, 2)` не подходит — точность `Number` заканчивается на 53 битах. (Можно через `BigInt('0b' + a)`, но на собеседовании ждут ручное сложение.)\n\nСкладываем как в школе, только в двоичной системе:\n\n1. Два указателя `i`, `j` идут с конца строк, `carry` — перенос.\n2. На каждом шаге `sum = a[i] + b[j] + carry` (недостающие разряды — нули), `sum` от 0 до 3.\n3. Цифра разряда — `sum & 1` (то же, что `sum % 2`), новый перенос — `sum >> 1` (то же, что `Math.floor(sum / 2)`).\n4. Цикл идёт, пока есть разряды **или** перенос — иначе потеряем старшую единицу (`\"1\" + \"1\" = \"10\"`).\n5. Цифры получаются от младших к старшим, в конце разворачиваем.\n\nНакопление в массив и один `join` в конце дешевле, чем приклеивать символ к началу строки на каждом шаге.\n\n**Сложность:** время `O(max(n, m))`, память `O(max(n, m))` под ответ.",
+  "theory": {
+    "topicKey": "bit-manipulation",
+    "titleRu": "Битовые операции"
+  }
+}

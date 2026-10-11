@@ -1,0 +1,16 @@
+{
+  "slug": "majority-element",
+  "leetcodeId": 169,
+  "title": "Majority Element",
+  "difficulty": "easy",
+  "group": "Array / String",
+  "leetcodeUrl": "https://leetcode.com/problems/majority-element/",
+  "conditionMd": "Given an array `nums` of size `n`, return _the majority element_.\n\nThe majority element is the element that appears more than `⌊n / 2⌋` times. You may assume that the majority element always exists in the array.\n\n**Example 1:**\n\n```\nInput: nums = [3,2,3]\nOutput: 3\n```\n\n**Example 2:**\n\n```\nInput: nums = [2,2,1,1,1,2,2]\nOutput: 2\n```\n\n**Constraints:**\n\n-   `n == nums.length`\n-   `1 <= n <= 5 * 10^4`\n-   `-10^9 <= nums[i] <= 10^9`\n-   The input is generated such that a majority element will exist in the array.\n\n**Follow-up:** Could you solve the problem in linear time and in `O(1)` space?",
+  "descriptionRuMd": "Дан массив `nums` размера `n`. Верните _элемент большинства_.\n\nЭлемент большинства — это элемент, который встречается более `⌊n / 2⌋` раз. Можно считать, что элемент большинства в массиве всегда существует.\n\n**Пример 1:**\n\n```\nВход: nums = [3,2,3]\nВыход: 3\n```\n\n**Пример 2:**\n\n```\nВход: nums = [2,2,1,1,1,2,2]\nВыход: 2\n```\n\n**Ограничения:**\n\n- `n == nums.length`\n- `1 <= n <= 5 * 10^4`\n- `-10^9 <= nums[i] <= 10^9`\n- Входные данные гарантируют, что элемент большинства существует.\n\n**Дополнительно:** сможете решить задачу за линейное время и `O(1)` памяти?",
+  "solutionTs": "function majorityElement(nums: number[]): number {\n  // Текущий кандидат в большинство и его «перевес» голосов\n  let candidate = nums[0];\n  let count = 0;\n\n  for (const x of nums) {\n    if (count === 0) {\n      // Перевеса нет — новый элемент становится кандидатом\n      candidate = x;\n    }\n    // Голос «за» своего кандидата, «против» — за чужого\n    count += x === candidate ? 1 : -1;\n  }\n\n  // По условию большинство существует, значит это кандидат\n  return candidate;\n}\n\n// Время: O(n) — один проход\n// Память: O(1) — алгоритм голосования Бойера–Мура\n",
+  "ideaRuMd": "### Идея: голосование Бойера–Мура\n\nПростые варианты:\n- посчитать частоты в `Map` — `O(n)` времени, но `O(n)` памяти;\n- отсортировать и взять `nums[Math.floor(n / 2)]` — элемент большинства обязательно попадёт в середину, но это `O(n log n)`.\n\nРешение за `O(1)` памяти — **голосование**:\n\n1. Храним `candidate` и счётчик `count`.\n2. Если `count === 0`, текущий элемент становится новым кандидатом.\n3. Совпадает с кандидатом — `count++`, иначе `count--`.\n\n**Почему работает:** каждое уменьшение счётчика — это «взаимное уничтожение» пары разных элементов. Элемент большинства встречается больше `n/2` раз, поэтому все остальные элементы вместе не могут уничтожить все его копии — он останется кандидатом в конце.\n\nЕсли бы большинство не было гарантировано, понадобился бы второй проход: посчитать, сколько раз встречается `candidate`, и проверить, что больше `n/2`.\n\n**Сложность:** время `O(n)`, память `O(1)`.",
+  "theory": {
+    "topicKey": "arrays-strings",
+    "titleRu": "Массивы и строки"
+  }
+}

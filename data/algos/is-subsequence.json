@@ -1,0 +1,16 @@
+{
+  "slug": "is-subsequence",
+  "leetcodeId": 392,
+  "title": "Is Subsequence",
+  "difficulty": "easy",
+  "group": "Two Pointers",
+  "leetcodeUrl": "https://leetcode.com/problems/is-subsequence/",
+  "conditionMd": "Given two strings `s` and `t`, return `true` _if_ `s` _is a **subsequence** of_ `t`_, or_ `false` _otherwise_.\n\nA **subsequence** of a string is a new string that is formed from the original string by deleting some (can be none) of the characters without disturbing the relative positions of the remaining characters. (i.e., `\"ace\"` is a subsequence of `\"abcde\"` while `\"aec\"` is not).\n\n**Example 1:**\n\n```\nInput: s = \"abc\", t = \"ahbgdc\"\nOutput: true\n```\n\n**Example 2:**\n\n```\nInput: s = \"axc\", t = \"ahbgdc\"\nOutput: false\n```\n\n**Constraints:**\n\n-   `0 <= s.length <= 100`\n-   `0 <= t.length <= 10^4`\n-   `s` and `t` consist only of lowercase English letters.\n\n**Follow up:** Suppose there are lots of incoming `s`, say `s_1, s_2, ..., s_k` where `k >= 10^9`, and you want to check one by one to see if `t` has its subsequence. In this scenario, how would you change your code?",
+  "descriptionRuMd": "Даны две строки `s` и `t`. Верните `true`, если `s` является **подпоследовательностью** `t`, иначе `false`.\n\n**Подпоследовательность** строки — это новая строка, полученная из исходной удалением некоторых символов (возможно, ни одного) без изменения порядка оставшихся. Например, `\"ace\"` — подпоследовательность `\"abcde\"`, а `\"aec\"` — нет.\n\n**Пример 1:**\n\n```\nВход: s = \"abc\", t = \"ahbgdc\"\nВыход: true\n```\n\n**Пример 2:**\n\n```\nВход: s = \"axc\", t = \"ahbgdc\"\nВыход: false\n```\n\n**Ограничения:**\n\n- `0 <= s.length <= 100`\n- `0 <= t.length <= 10^4`\n- `s` и `t` состоят только из строчных латинских букв.\n\n**Дополнительно:** пусть приходит очень много строк `s_1, s_2, ..., s_k` (`k >= 10^9`), и для каждой нужно проверить, является ли она подпоследовательностью `t`. Как изменить решение?",
+  "solutionTs": "function isSubsequence(s: string, t: string): boolean {\n  // i — сколько символов s уже нашли в t\n  let i = 0;\n\n  // Идём по t один раз и «жадно» сопоставляем символы\n  for (let j = 0; j < t.length && i < s.length; j++) {\n    if (s[i] === t[j]) {\n      // Нашли очередной символ s — ищем следующий\n      i++;\n    }\n  }\n\n  // Все символы s найдены по порядку\n  return i === s.length;\n}\n\n// Время: O(|t|)\n// Память: O(1)\n",
+  "ideaRuMd": "### Идея: жадное сопоставление двумя указателями\n\nУказатель `i` стоит на символе `s`, который мы ищем, `j` проходит по `t`.\n\n- Если `s[i] === t[j]` — символ найден, сдвигаем `i`.\n- В любом случае сдвигаем `j`.\n\nЖадность здесь корректна: брать **самое раннее** вхождение символа всегда выгодно — после него в `t` остаётся максимум символов для оставшейся части `s`.\n\nОтвет — `true`, если `i` дошёл до конца `s`.\n\n**Сложность:** время `O(|t|)`, память `O(1)`.\n\n### Follow-up: много строк s\n\nПредобработаем `t` один раз: для каждой буквы сохраним **отсортированный список индексов**, где она встречается. Для очередной `s` ищем каждый символ бинарным поиском — первый индекс больше текущей позиции. Итого `O(|s| · log|t|)` на запрос.",
+  "theory": {
+    "topicKey": "two-pointers",
+    "titleRu": "Два указателя"
+  }
+}

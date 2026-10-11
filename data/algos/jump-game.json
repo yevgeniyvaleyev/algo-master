@@ -1,0 +1,16 @@
+{
+  "slug": "jump-game",
+  "leetcodeId": 55,
+  "title": "Jump Game",
+  "difficulty": "medium",
+  "group": "Array / String",
+  "leetcodeUrl": "https://leetcode.com/problems/jump-game/",
+  "conditionMd": "You are given an integer array `nums`. You are initially positioned at the array's **first index**, and each element in the array represents your maximum jump length at that position.\n\nReturn `true` _if you can reach the last index, or_ `false` _otherwise_.\n\n**Example 1:**\n\n```\nInput: nums = [2,3,1,1,4]\nOutput: true\nExplanation: Jump 1 step from index 0 to 1, then 3 steps to the last index.\n```\n\n**Example 2:**\n\n```\nInput: nums = [3,2,1,0,4]\nOutput: false\nExplanation: You will always arrive at index 3 no matter what. Its maximum jump length is 0, which makes it impossible to reach the last index.\n```\n\n**Constraints:**\n\n-   `1 <= nums.length <= 10^4`\n-   `0 <= nums[i] <= 10^5`",
+  "descriptionRuMd": "Дан массив целых чисел `nums`. Изначально вы стоите на **первом индексе** массива, а каждый элемент — это максимальная длина прыжка из этой позиции.\n\nВерните `true`, _если можно добраться до последнего индекса, иначе_ `false`.\n\n**Пример 1:**\n\n```\nВход: nums = [2,3,1,1,4]\nВыход: true\nПояснение: прыгаем на 1 шаг с индекса 0 на 1, затем на 3 шага до последнего индекса.\n```\n\n**Пример 2:**\n\n```\nВход: nums = [3,2,1,0,4]\nВыход: false\nПояснение: как ни прыгай, всегда попадёшь на индекс 3. Его максимальная длина прыжка равна 0, поэтому добраться до последнего индекса невозможно.\n```\n\n**Ограничения:**\n\n- `1 <= nums.length <= 10^4`\n- `0 <= nums[i] <= 10^5`",
+  "solutionTs": "function canJump(nums: number[]): boolean {\n  // Самый дальний индекс, до которого точно можно добраться\n  let farthest = 0;\n\n  for (let i = 0; i < nums.length; i++) {\n    // Индекс i недостижим — значит, и все дальше тоже\n    if (i > farthest) return false;\n\n    // Из i можно допрыгнуть до i + nums[i] — расширяем зону досягаемости\n    farthest = Math.max(farthest, i + nums[i]);\n\n    // Последний индекс уже в зоне досягаемости\n    if (farthest >= nums.length - 1) return true;\n  }\n\n  return true;\n}\n\n// Время: O(n) — один проход\n// Память: O(1)\n",
+  "ideaRuMd": "### Идея: поддерживать максимальную дальность\n\nКлючевое наблюдение: множество достижимых индексов — это всегда **отрезок** `[0, farthest]`. Если можно допрыгнуть до индекса `j`, то можно и до любого `i < j` (прыгать разрешено на любую длину от 0 до `nums[i]`).\n\nПоэтому достаточно хранить одно число `farthest`:\n\n1. Идём по индексам слева направо.\n2. Если `i > farthest` — до `i` не добраться, а значит и до конца: `false`.\n3. Иначе обновляем `farthest = max(farthest, i + nums[i])`.\n4. Как только `farthest >= n - 1` — ответ `true`.\n\nЗастревание происходит только на «яме»: ноль, через который не перепрыгнуть ни с одной позиции левее (как индекс 3 в `[3,2,1,0,4]`).\n\n### Альтернативы\n\n- **Жадно с конца:** `goal = n - 1`; идём справа налево и, если `i + nums[i] >= goal`, переносим `goal = i`. Ответ — `goal === 0`.\n- **DP** «достижим ли индекс» — `O(n²)`, избыточно.\n\n**Сложность:** время `O(n)`, память `O(1)`.",
+  "theory": {
+    "topicKey": "greedy",
+    "titleRu": "Жадные алгоритмы"
+  }
+}

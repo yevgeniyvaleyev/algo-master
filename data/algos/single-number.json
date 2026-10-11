@@ -1,0 +1,16 @@
+{
+  "slug": "single-number",
+  "leetcodeId": 136,
+  "title": "Single Number",
+  "difficulty": "easy",
+  "group": "Bit Manipulation",
+  "leetcodeUrl": "https://leetcode.com/problems/single-number/",
+  "conditionMd": "Given a **non-empty** array of integers `nums`, every element appears _twice_ except for one. Find that single one.\n\nYou must implement a solution with a linear runtime complexity and use only constant extra space.\n\n**Example 1:**\n\n**Input:** nums = \\[2,2,1\\]\n\n**Output:** 1\n\n**Example 2:**\n\n**Input:** nums = \\[4,1,2,1,2\\]\n\n**Output:** 4\n\n**Example 3:**\n\n**Input:** nums = \\[1\\]\n\n**Output:** 1\n\n**Constraints:**\n\n-   `1 <= nums.length <= 3 * 10^4`\n-   `-3 * 10^4 <= nums[i] <= 3 * 10^4`\n-   Each element in the array appears twice except for one element which appears only once.",
+  "descriptionRuMd": "Дан **непустой** массив целых чисел `nums`. Каждый элемент встречается в нём _дважды_, кроме одного. Найдите этот единственный элемент.\n\nРешение должно работать за линейное время и использовать только константную дополнительную память.\n\n**Пример 1:**\n\n**Вход:** nums = [2,2,1]\n\n**Выход:** 1\n\n**Пример 2:**\n\n**Вход:** nums = [4,1,2,1,2]\n\n**Выход:** 4\n\n**Пример 3:**\n\n**Вход:** nums = [1]\n\n**Выход:** 1\n\n**Ограничения:**\n\n- `1 <= nums.length <= 3 * 10^4`\n- `-3 * 10^4 <= nums[i] <= 3 * 10^4`\n- Каждый элемент встречается дважды, кроме одного, который встречается ровно один раз.",
+  "solutionTs": "function singleNumber(nums: number[]): number {\n  // x ^ x = 0 и x ^ 0 = x, а порядок XOR не важен.\n  // Поэтому все пары взаимно уничтожатся, останется одиночный элемент\n  let result = 0;\n\n  for (const num of nums) {\n    result ^= num;\n  }\n\n  return result;\n}\n\n// Время: O(n) — один проход\n// Память: O(1)\n",
+  "ideaRuMd": "### Идея: XOR сокращает пары\n\nОчевидные решения — `Set` или `Map` с подсчётом — работают за `O(n)`, но требуют `O(n)` памяти. Условие просит `O(1)`.\n\nСвойства исключающего ИЛИ:\n- `a ^ a = 0` — одинаковые биты дают 0;\n- `a ^ 0 = a`;\n- XOR **коммутативен и ассоциативен** — элементы можно переставлять как угодно.\n\nЗначит, XOR всего массива равен XOR, где все пары стоят рядом:\n\n```\n4 ^ 1 ^ 2 ^ 1 ^ 2 = 4 ^ (1 ^ 1) ^ (2 ^ 2) = 4 ^ 0 ^ 0 = 4\n```\n\nОтрицательные числа тоже работают: в JS они представлены в дополнительном коде в 32 битах, и `-3 ^ -3 = 0` так же, как для положительных. Числа по модулю до `3 * 10^4` в 32 бита помещаются.\n\n**Сложность:** время `O(n)`, память `O(1)`.",
+  "theory": {
+    "topicKey": "bit-manipulation",
+    "titleRu": "Битовые операции"
+  }
+}

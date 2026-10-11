@@ -1,0 +1,16 @@
+{
+  "slug": "same-tree",
+  "leetcodeId": 100,
+  "title": "Same Tree",
+  "difficulty": "easy",
+  "group": "Binary Tree General",
+  "leetcodeUrl": "https://leetcode.com/problems/same-tree/",
+  "conditionMd": "Given the roots of two binary trees `p` and `q`, write a function to check if they are the same or not.\n\nTwo binary trees are considered the same if they are structurally identical, and the nodes have the same value.\n\n**Example 1:**\n\n![](https://assets.leetcode.com/uploads/2020/12/20/ex1.jpg)\n\n```\nInput: p = [1,2,3], q = [1,2,3]\nOutput: true\n```\n\n**Example 2:**\n\n![](https://assets.leetcode.com/uploads/2020/12/20/ex2.jpg)\n\n```\nInput: p = [1,2], q = [1,null,2]\nOutput: false\n```\n\n**Example 3:**\n\n![](https://assets.leetcode.com/uploads/2020/12/20/ex3.jpg)\n\n```\nInput: p = [1,2,1], q = [1,1,2]\nOutput: false\n```\n\n**Constraints:**\n\n-   The number of nodes in both trees is in the range `[0, 100]`.\n-   `-10^4 <= Node.val <= 10^4`",
+  "descriptionRuMd": "Даны корни двух двоичных деревьев `p` и `q`. Напишите функцию, которая проверяет, одинаковы ли они.\n\nДва двоичных дерева считаются одинаковыми, если они совпадают по структуре и в соответствующих узлах стоят одинаковые значения.\n\n**Пример 1:**\n\n![](https://assets.leetcode.com/uploads/2020/12/20/ex1.jpg)\n\n```\nВход: p = [1,2,3], q = [1,2,3]\nВыход: true\n```\n\n**Пример 2:**\n\n![](https://assets.leetcode.com/uploads/2020/12/20/ex2.jpg)\n\n```\nВход: p = [1,2], q = [1,null,2]\nВыход: false\n```\n\n**Пример 3:**\n\n![](https://assets.leetcode.com/uploads/2020/12/20/ex3.jpg)\n\n```\nВход: p = [1,2,1], q = [1,1,2]\nВыход: false\n```\n\n**Ограничения:**\n\n- Количество узлов в каждом дереве — в диапазоне `[0, 100]`.\n- `-10^4 <= Node.val <= 10^4`",
+  "solutionTs": "function isSameTree(p: TreeNode | null, q: TreeNode | null): boolean {\n  // Оба поддерева пустые — совпадают\n  if (p === null && q === null) {\n    return true;\n  }\n\n  // Пусто только одно — структура разная\n  if (p === null || q === null) {\n    return false;\n  }\n\n  // Оба узла есть: значения должны совпасть,\n  // а левые и правые поддеревья — быть одинаковыми попарно\n  return p.val === q.val && isSameTree(p.left, q.left) && isSameTree(p.right, q.right);\n}\n\n// Время: O(n) — каждый узел сравнивается не более одного раза\n// Память: O(h) — стек рекурсии\n",
+  "ideaRuMd": "### Идея: одновременный DFS по двум деревьям\n\nСпускаемся по обоим деревьям синхронно и сравниваем узлы в одинаковых позициях:\n\n1. Оба узла `null` — в этой позиции деревья совпадают.\n2. Ровно один `null` — структура разная, `false`.\n3. Оба есть — значения должны быть равны, и рекурсивно должны совпасть пары `(p.left, q.left)` и `(p.right, q.right)`.\n\nБлагодаря `&&` проверка обрывается на первом же расхождении.\n\nТот же шаблон «рекурсия по паре узлов» используется в задаче Symmetric Tree, только там пары берутся «крест-накрест».\n\n**Сложность:** время `O(min(n, m))`, память `O(h)` на стек рекурсии.",
+  "theory": {
+    "topicKey": "tree-dfs",
+    "titleRu": "Обход дерева в глубину (DFS)"
+  }
+}

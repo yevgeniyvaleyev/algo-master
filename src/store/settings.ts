@@ -1,0 +1,53 @@
+import { Appearance } from 'react-native';
+import { create } from 'zustand';
+
+import { kvGet, kvSet } from '@/db/client';
+
+export type ThemeMode = 'system' | 'light' | 'dark';
+
+export interface Settings {
+  dailyGoal: number;
+  minutesPerAlgo: number;
+  autoUnmark: boolean;
+  expireDays: number;
+  theme: ThemeMode;
+  blockedPackages: string[];
+  codeFontSize: number;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  dailyGoal: 3,
+  minutesPerAlgo: 30,
+  autoUnmark: false,
+  expireDays: 14,
+  theme: 'system',
+  blockedPackages: [],
+  codeFontSize: 13,
+};
+
+const KV_KEY = 'settings';
+
+interface SettingsState extends Settings {
+  hydrate: () => Promise<void>;
+  update: (patch: Partial<Settings>) => void;
+}
+
+function applyTheme(mode: ThemeMode) {
+  Appearance.setColorScheme(mode === 'system' ? 'unspecified' : mode);
+}
+
+export const useSettings = create<SettingsState>((set, get) => ({
+  ...DEFAULT_SETTINGS,
+  hydrate: async () => {
+    const stored = (await kvGet<Partial<Settings>>(KV_KEY)) ?? {};
+    const next = { ...DEFAULT_SETTINGS, ...stored };
+    set(next);
+    applyTheme(next.theme);
+  },
+  update: (patch) => {
+    set(patch);
+    if (patch.theme) applyTheme(patch.theme);
+    const { hydrate: _h, update: _u, ...values } = get();
+    void kvSet(KV_KEY, values);
+  },
+}));

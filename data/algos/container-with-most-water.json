@@ -1,0 +1,16 @@
+{
+  "slug": "container-with-most-water",
+  "leetcodeId": 11,
+  "title": "Container With Most Water",
+  "difficulty": "medium",
+  "group": "Two Pointers",
+  "leetcodeUrl": "https://leetcode.com/problems/container-with-most-water/",
+  "conditionMd": "You are given an integer array `height` of length `n`. There are `n` vertical lines drawn such that the two endpoints of the `i^th` line are `(i, 0)` and `(i, height[i])`.\n\nFind two lines that together with the x-axis form a container, such that the container contains the most water.\n\nReturn _the maximum amount of water a container can store_.\n\n**Notice** that you may not slant the container.\n\n**Example 1:**\n\n![](https://s3-lc-upload.s3.amazonaws.com/uploads/2018/07/17/question_11.jpg)\n\n```\nInput: height = [1,8,6,2,5,4,8,3,7]\nOutput: 49\nExplanation: The above vertical lines are represented by array [1,8,6,2,5,4,8,3,7]. In this case, the max area of water (blue section) the container can contain is 49.\n```\n\n**Example 2:**\n\n```\nInput: height = [1,1]\nOutput: 1\n```\n\n**Constraints:**\n\n-   `n == height.length`\n-   `2 <= n <= 10^5`\n-   `0 <= height[i] <= 10^4`",
+  "descriptionRuMd": "Дан массив целых чисел `height` длины `n`. На плоскости нарисованы `n` вертикальных линий: концы `i`-й линии — точки `(i, 0)` и `(i, height[i])`.\n\nНайдите две линии, которые вместе с осью x образуют контейнер, вмещающий больше всего воды.\n\nВерните _максимальный объём воды_, который может вместить контейнер.\n\n**Обратите внимание:** наклонять контейнер нельзя.\n\n**Пример 1:**\n\n![](https://s3-lc-upload.s3.amazonaws.com/uploads/2018/07/17/question_11.jpg)\n\n```\nВход: height = [1,8,6,2,5,4,8,3,7]\nВыход: 49\nПояснение: линии заданы массивом [1,8,6,2,5,4,8,3,7]. Максимальная площадь воды (синяя область) равна 49.\n```\n\n**Пример 2:**\n\n```\nВход: height = [1,1]\nВыход: 1\n```\n\n**Ограничения:**\n\n- `n == height.length`\n- `2 <= n <= 10^5`\n- `0 <= height[i] <= 10^4`",
+  "solutionTs": "function maxArea(height: number[]): number {\n  let left = 0;\n  let right = height.length - 1;\n  let best = 0;\n\n  while (left < right) {\n    // Уровень воды ограничен более низкой стенкой\n    const h = Math.min(height[left], height[right]);\n    best = Math.max(best, h * (right - left));\n\n    // Двигаем более низкую стенку: с ней любой более узкий\n    // контейнер точно не лучше текущего\n    if (height[left] < height[right]) {\n      left++;\n    } else {\n      right--;\n    }\n  }\n\n  return best;\n}\n\n// Время: O(n)\n// Память: O(1)\n",
+  "ideaRuMd": "### Идея: два указателя + жадное отсечение\n\nПлощадь контейнера между линиями `i < j`: `min(height[i], height[j]) * (j - i)`. Перебор всех пар — `O(n²)`.\n\nНачнём с самого широкого контейнера: `left = 0`, `right = n - 1`. Какую стенку двигать?\n\nПусть `height[left] < height[right]`. Любой контейнер с левой стенкой `left` и правой `k < right`:\n- **уже** (ширина меньше);\n- **не выше** — высота всё равно ограничена `height[left]`.\n\nЗначит, для `left` текущая пара — лучшая, и `left` можно отбросить: `left++`. Симметрично для правой стенки.\n\nДвигать **более высокую** стенку бессмысленно — высота не вырастет, а ширина уменьшится.\n\n**Сложность:** время `O(n)`, память `O(1)`.",
+  "theory": {
+    "topicKey": "two-pointers",
+    "titleRu": "Два указателя"
+  }
+}

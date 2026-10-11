@@ -1,0 +1,16 @@
+{
+  "slug": "longest-substring-without-repeating-characters",
+  "leetcodeId": 3,
+  "title": "Longest Substring Without Repeating Characters",
+  "difficulty": "medium",
+  "group": "Sliding Window",
+  "leetcodeUrl": "https://leetcode.com/problems/longest-substring-without-repeating-characters/",
+  "conditionMd": "Given a string `s`, find the length of the **longest** **substring** without duplicate characters.\n\n**Example 1:**\n\n```\nInput: s = \"abcabcbb\"\nOutput: 3\nExplanation: The answer is \"abc\", with the length of 3. Note that \"bca\" and \"cab\" are also correct answers.\n```\n\n**Example 2:**\n\n```\nInput: s = \"bbbbb\"\nOutput: 1\nExplanation: The answer is \"b\", with the length of 1.\n```\n\n**Example 3:**\n\n```\nInput: s = \"pwwkew\"\nOutput: 3\nExplanation: The answer is \"wke\", with the length of 3.\nNotice that the answer must be a substring, \"pwke\" is a subsequence and not a substring.\n```\n\n**Constraints:**\n\n-   `0 <= s.length <= 10^5`\n-   `s` consists of English letters, digits, symbols and spaces.",
+  "descriptionRuMd": "Дана строка `s`. Найдите длину **самой длинной** **подстроки** без повторяющихся символов.\n\n**Пример 1:**\n\n```\nВход: s = \"abcabcbb\"\nВыход: 3\nПояснение: ответ — \"abc\" длины 3. \"bca\" и \"cab\" тоже подходят.\n```\n\n**Пример 2:**\n\n```\nВход: s = \"bbbbb\"\nВыход: 1\nПояснение: ответ — \"b\" длины 1.\n```\n\n**Пример 3:**\n\n```\nВход: s = \"pwwkew\"\nВыход: 3\nПояснение: ответ — \"wke\" длины 3.\nОбратите внимание: ответ должен быть подстрокой. \"pwke\" — подпоследовательность, а не подстрока.\n```\n\n**Ограничения:**\n\n- `0 <= s.length <= 10^5`\n- `s` состоит из латинских букв, цифр, символов и пробелов.",
+  "solutionTs": "function lengthOfLongestSubstring(s: string): number {\n  // Для каждого символа — индекс его последнего вхождения\n  const lastSeen = new Map<string, number>();\n  let left = 0; // начало окна без повторов\n  let best = 0;\n\n  for (let right = 0; right < s.length; right++) {\n    const ch = s[right];\n    const prev = lastSeen.get(ch);\n\n    // Символ уже есть внутри окна — переносим левую границу сразу за него.\n    // Проверка prev >= left важна: старые вхождения левее окна не мешают\n    if (prev !== undefined && prev >= left) {\n      left = prev + 1;\n    }\n\n    lastSeen.set(ch, right);\n    best = Math.max(best, right - left + 1);\n  }\n\n  return best;\n}\n\n// Время: O(n) — один проход\n// Память: O(min(n, размер алфавита))\n",
+  "ideaRuMd": "### Идея: скользящее окно + последнее вхождение символа\n\nПоддерживаем окно `[left, right]`, в котором все символы **различны**.\n\n- Двигаем `right` и смотрим на символ `s[right]`.\n- Если он уже встречался **внутри окна** (его последний индекс `>= left`), окно невалидно. Вместо того чтобы сдвигать `left` по одному, сразу **перепрыгиваем**: `left = lastSeen[ch] + 1`.\n- Обновляем `lastSeen[ch] = right` и ответ `right - left + 1`.\n\nПроверка `prev >= left` нужна, чтобы не сдвинуть `left` **назад** из-за вхождения, которое уже вне окна (например, `\"abba\"`).\n\n**Сложность:** время `O(n)`, память `O(k)`, где `k` — число различных символов.",
+  "theory": {
+    "topicKey": "sliding-window",
+    "titleRu": "Скользящее окно"
+  }
+}

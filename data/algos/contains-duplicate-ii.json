@@ -1,0 +1,16 @@
+{
+  "slug": "contains-duplicate-ii",
+  "leetcodeId": 219,
+  "title": "Contains Duplicate II",
+  "difficulty": "easy",
+  "group": "Hashmap",
+  "leetcodeUrl": "https://leetcode.com/problems/contains-duplicate-ii/",
+  "conditionMd": "Given an integer array `nums` and an integer `k`, return `true` _if there are two **distinct indices**_ `i` _and_ `j` _in the array such that_ `nums[i] == nums[j]` _and_ `abs(i - j) <= k`.\n\n**Example 1:**\n\n```\nInput: nums = [1,2,3,1], k = 3\nOutput: true\n```\n\n**Example 2:**\n\n```\nInput: nums = [1,0,1,1], k = 1\nOutput: true\n```\n\n**Example 3:**\n\n```\nInput: nums = [1,2,3,1,2,3], k = 2\nOutput: false\n```\n\n**Constraints:**\n\n-   `1 <= nums.length <= 10^5`\n-   `-10^9 <= nums[i] <= 10^9`\n-   `0 <= k <= 10^5`",
+  "descriptionRuMd": "Дан массив целых чисел `nums` и целое число `k`. Верните `true`, если в массиве есть два **различных индекса** `i` и `j` такие, что `nums[i] == nums[j]` и `abs(i - j) <= k`.\n\n**Пример 1:**\n\n```\nВход: nums = [1,2,3,1], k = 3\nВыход: true\n```\n\n**Пример 2:**\n\n```\nВход: nums = [1,0,1,1], k = 1\nВыход: true\n```\n\n**Пример 3:**\n\n```\nВход: nums = [1,2,3,1,2,3], k = 2\nВыход: false\n```\n\n**Ограничения:**\n\n- `1 <= nums.length <= 10^5`\n- `-10^9 <= nums[i] <= 10^9`\n- `0 <= k <= 10^5`",
+  "solutionTs": "function containsNearbyDuplicate(nums: number[], k: number): boolean {\n  // Значение -> последний индекс, где оно встречалось\n  const lastIndex = new Map<number, number>();\n\n  for (let i = 0; i < nums.length; i++) {\n    const prev = lastIndex.get(nums[i]);\n\n    // Такое же значение было не дальше k позиций назад\n    if (prev !== undefined && i - prev <= k) return true;\n\n    // Обновляем на текущий индекс: он ближе к будущим элементам\n    lastIndex.set(nums[i], i);\n  }\n\n  return false;\n}\n\n// Время: O(n)\n// Память: O(n)\n",
+  "ideaRuMd": "### Идея: помнить последний индекс каждого значения\n\nДля каждого элемента нам интересен только **ближайший слева** такой же элемент — если даже он дальше `k`, то более ранние тем более.\n\nХраним `Map<значение, последний индекс>`:\n1. Для `nums[i]` смотрим `prev = lastIndex.get(nums[i])`.\n2. Если `prev` есть и `i - prev <= k` — ответ `true`.\n3. Иначе записываем `nums[i] → i` (перезаписываем старый индекс — новый всегда выгоднее).\n\n**Сложность:** время `O(n)`, память `O(n)`.\n\n### Вариант: скользящее окно с Set\n\nДержим `Set` из последних `k` элементов. Перед добавлением `nums[i]` проверяем, есть ли он в окне; после добавления, если размер окна превысил `k`, удаляем `nums[i - k]`. Память — `O(min(n, k))`.",
+  "theory": {
+    "topicKey": "hash-map",
+    "titleRu": "Хеш-таблица"
+  }
+}

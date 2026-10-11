@@ -1,0 +1,16 @@
+{
+  "slug": "rotate-list",
+  "leetcodeId": 61,
+  "title": "Rotate List",
+  "difficulty": "medium",
+  "group": "Linked List",
+  "leetcodeUrl": "https://leetcode.com/problems/rotate-list/",
+  "conditionMd": "Given the `head` of a linked list, rotate the list to the right by `k` places.\n\n**Example 1:**\n\n![](https://assets.leetcode.com/uploads/2020/11/13/rotate1.jpg)\n\n```\nInput: head = [1,2,3,4,5], k = 2\nOutput: [4,5,1,2,3]\n```\n\n**Example 2:**\n\n![](https://assets.leetcode.com/uploads/2020/11/13/roate2.jpg)\n\n```\nInput: head = [0,1,2], k = 4\nOutput: [2,0,1]\n```\n\n**Constraints:**\n\n-   The number of nodes in the list is in the range `[0, 500]`.\n-   `-100 <= Node.val <= 100`\n-   `0 <= k <= 2 * 10^9`",
+  "descriptionRuMd": "Дана голова `head` связного списка. Поверните список вправо на `k` позиций.\n\n**Пример 1:**\n\n![](https://assets.leetcode.com/uploads/2020/11/13/rotate1.jpg)\n\n```\nВход: head = [1,2,3,4,5], k = 2\nВыход: [4,5,1,2,3]\n```\n\n**Пример 2:**\n\n![](https://assets.leetcode.com/uploads/2020/11/13/roate2.jpg)\n\n```\nВход: head = [0,1,2], k = 4\nВыход: [2,0,1]\n```\n\n**Ограничения:**\n\n- Количество узлов в списке — в диапазоне `[0, 500]`.\n- `-100 <= Node.val <= 100`\n- `0 <= k <= 2 * 10^9`",
+  "solutionTs": "/**\n * Definition for singly-linked list.\n * class ListNode {\n *     val: number\n *     next: ListNode | null\n *     constructor(val?: number, next?: ListNode | null)\n * }\n */\n\nfunction rotateRight(head: ListNode | null, k: number): ListNode | null {\n  // Пустой список и список из одного узла не меняются\n  if (head === null || head.next === null) return head;\n\n  // Считаем длину и заодно находим хвост\n  let n = 1;\n  let tail: ListNode = head;\n  while (tail.next !== null) {\n    tail = tail.next;\n    n++;\n  }\n\n  // Поворот на n позиций возвращает список в исходное состояние\n  k %= n;\n  if (k === 0) return head;\n\n  // Новый хвост — (n - k)-й узел с начала, новая голова — следующий за ним\n  let newTail: ListNode = head;\n  for (let i = 1; i < n - k; i++) newTail = newTail.next!;\n  const newHead = newTail.next;\n\n  // Разрываем список после newTail и пришиваем старую голову к старому хвосту\n  newTail.next = null;\n  tail.next = head;\n\n  return newHead;\n}\n\n// Время: O(n) — не больше двух проходов\n// Память: O(1)\n",
+  "ideaRuMd": "### Идея: длина, остаток и одна перестыковка\n\nПоворот вправо на `k` — это «последние `k` узлов переезжают в начало».\n\n1. Проходом считаем длину `n` и находим хвост `tail`.\n2. `k %= n`: поворот на `n` ничего не меняет, а `k` может быть до `2 · 10^9` — крутить столько раз нельзя. Если `k === 0`, ответ — исходный список.\n3. Новый хвост — узел номер `n - k` (с единицы), новая голова — следующий за ним.\n4. Перестыковка: `newTail.next = null`, `tail.next = head`.\n\nЭквивалентный вариант — замкнуть список в кольцо (`tail.next = head`), пройти `n - k` шагов и разрезать.\n\n### Краевые случаи\n\n- Пустой список или один узел — возвращаем как есть.\n- `k` кратно `n` — список не меняется.\n\n**Сложность:** время `O(n)`, память `O(1)`.",
+  "theory": {
+    "topicKey": "linked-list",
+    "titleRu": "Связный список"
+  }
+}

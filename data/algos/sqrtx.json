@@ -1,0 +1,16 @@
+{
+  "slug": "sqrtx",
+  "leetcodeId": 69,
+  "title": "Sqrt(x)",
+  "difficulty": "easy",
+  "group": "Math",
+  "leetcodeUrl": "https://leetcode.com/problems/sqrtx/",
+  "conditionMd": "Given a non-negative integer `x`, return _the square root of_ `x` _rounded down to the nearest integer_. The returned integer should be **non-negative** as well.\n\nYou **must not use** any built-in exponent function or operator.\n\n-   For example, do not use `pow(x, 0.5)` in c++ or `x ** 0.5` in python.\n\n**Example 1:**\n\n```\nInput: x = 4\nOutput: 2\nExplanation: The square root of 4 is 2, so we return 2.\n```\n\n**Example 2:**\n\n```\nInput: x = 8\nOutput: 2\nExplanation: The square root of 8 is 2.82842..., and since we round it down to the nearest integer, 2 is returned.\n```\n\n**Constraints:**\n\n-   `0 <= x <= 2^31 - 1`",
+  "descriptionRuMd": "Дано неотрицательное целое число `x`. Верните _квадратный корень из_ `x`, _округлённый вниз до целого_. Возвращаемое число тоже должно быть **неотрицательным**.\n\n**Нельзя использовать** встроенные функции и операторы возведения в степень.\n\n- Например, нельзя писать `pow(x, 0.5)` в C++ или `x ** 0.5` в Python.\n\n**Пример 1:**\n\n```\nВход: x = 4\nВыход: 2\nПояснение: квадратный корень из 4 равен 2, поэтому возвращаем 2.\n```\n\n**Пример 2:**\n\n```\nВход: x = 8\nВыход: 2\nПояснение: квадратный корень из 8 равен 2.82842..., округляем вниз и возвращаем 2.\n```\n\n**Ограничения:**\n\n- `0 <= x <= 2^31 - 1`",
+  "solutionTs": "function mySqrt(x: number): number {\n  // Для 0 и 1 корень равен самому числу\n  if (x < 2) {\n    return x;\n  }\n\n  // Ищем наибольшее m, для которого m * m <= x.\n  // При x >= 2 корень не больше x / 2\n  let lo = 1;\n  let hi = Math.floor(x / 2);\n  let answer = 1;\n\n  while (lo <= hi) {\n    const mid = lo + Math.floor((hi - lo) / 2);\n\n    // Сравниваем mid <= x / mid вместо mid * mid <= x:\n    // так произведение не выходит за пределы точности/диапазона\n    if (mid <= Math.floor(x / mid)) {\n      // mid подходит — запоминаем и пробуем больше\n      answer = mid;\n      lo = mid + 1;\n    } else {\n      // mid слишком велик — ищем левее\n      hi = mid - 1;\n    }\n  }\n\n  return answer;\n}\n\n// Время: O(log x)\n// Память: O(1)\n",
+  "ideaRuMd": "### Идея: бинарный поиск по ответу\n\nОтвет — **наибольшее** целое `m`, для которого `m * m <= x`. Условие `m * m <= x` монотонно: для маленьких `m` оно истинно, начиная с какого-то — ложно (`true … true false … false`). Значит, границу можно найти бинарным поиском.\n\n1. `x = 0` и `x = 1` возвращаем сразу.\n2. Для `x >= 2` корень лежит в `[1, x / 2]` (ведь `(x/2)^2 >= x` при `x >= 4`, а для `x = 2, 3` ответ `1`).\n3. Берём `mid`. Если `mid * mid <= x` — `mid` кандидат, запоминаем его и идём правее. Иначе — левее.\n4. Когда диапазон пуст, `answer` — последний подошедший `mid`, то есть максимальный.\n\nПроверка записана как `mid <= Math.floor(x / mid)`: в Java/C++ `mid * mid` переполнил бы `int`, а в JS это защищает от выхода за безопасный диапазон целых при больших `hi`. Для целых чисел условия эквивалентны.\n\n**Альтернатива:** метод Ньютона `r = (r + x / r) / 2` сходится за несколько итераций, но бинарный поиск проще доказать.\n\n**Сложность:** время `O(log x)`, память `O(1)`.",
+  "theory": {
+    "topicKey": "binary-search",
+    "titleRu": "Бинарный поиск"
+  }
+}

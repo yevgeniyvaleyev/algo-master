@@ -1,0 +1,16 @@
+{
+  "slug": "remove-nth-node-from-end-of-list",
+  "leetcodeId": 19,
+  "title": "Remove Nth Node From End of List",
+  "difficulty": "medium",
+  "group": "Linked List",
+  "leetcodeUrl": "https://leetcode.com/problems/remove-nth-node-from-end-of-list/",
+  "conditionMd": "Given the `head` of a linked list, remove the `n^th` node from the end of the list and return its head.\n\n**Example 1:**\n\n![](https://assets.leetcode.com/uploads/2020/10/03/remove_ex1.jpg)\n\n```\nInput: head = [1,2,3,4,5], n = 2\nOutput: [1,2,3,5]\n```\n\n**Example 2:**\n\n```\nInput: head = [1], n = 1\nOutput: []\n```\n\n**Example 3:**\n\n```\nInput: head = [1,2], n = 1\nOutput: [1]\n```\n\n**Constraints:**\n\n-   The number of nodes in the list is `sz`.\n-   `1 <= sz <= 30`\n-   `0 <= Node.val <= 100`\n-   `1 <= n <= sz`\n\n**Follow up:** Could you do this in one pass?",
+  "descriptionRuMd": "Дана голова `head` связного списка. Удалите `n`-й с конца узел списка и верните его голову.\n\n**Пример 1:**\n\n![](https://assets.leetcode.com/uploads/2020/10/03/remove_ex1.jpg)\n\n```\nВход: head = [1,2,3,4,5], n = 2\nВыход: [1,2,3,5]\n```\n\n**Пример 2:**\n\n```\nВход: head = [1], n = 1\nВыход: []\n```\n\n**Пример 3:**\n\n```\nВход: head = [1,2], n = 1\nВыход: [1]\n```\n\n**Ограничения:**\n\n- Количество узлов в списке — `sz`.\n- `1 <= sz <= 30`\n- `0 <= Node.val <= 100`\n- `1 <= n <= sz`\n\n**Дополнительно:** сможете сделать это за один проход?",
+  "solutionTs": "/**\n * Definition for singly-linked list.\n * class ListNode {\n *     val: number\n *     next: ListNode | null\n *     constructor(val?: number, next?: ListNode | null)\n * }\n */\n\nfunction removeNthFromEnd(head: ListNode | null, n: number): ListNode | null {\n  // Заглушка: удаление самой головы не требует особого случая\n  const dummy = new ListNode(0, head);\n  let fast: ListNode | null = dummy;\n  let slow: ListNode = dummy;\n\n  // Уводим fast на n + 1 шаг вперёд: между slow и fast будет ровно n узлов\n  for (let i = 0; i <= n; i++) fast = fast!.next;\n\n  // Двигаем оба, пока fast не выйдет за конец списка\n  while (fast !== null) {\n    fast = fast.next;\n    slow = slow.next!;\n  }\n\n  // slow стоит прямо перед удаляемым узлом — перешагиваем через него\n  slow.next = slow.next!.next;\n\n  return dummy.next;\n}\n\n// Время: O(sz) — один проход\n// Память: O(1)\n",
+  "ideaRuMd": "### Идея: два указателя с отставанием\n\nПростой вариант — два прохода: посчитать длину `sz`, затем удалить узел номер `sz - n` с начала.\n\n**За один проход:**\n\n1. Ставим `dummy` перед головой, оба указателя `fast` и `slow` — на `dummy`.\n2. Двигаем `fast` на `n + 1` шаг вперёд.\n3. Двигаем оба указателя, пока `fast !== null`. Расстояние между ними сохраняется, и когда `fast` вышел за конец, `slow` стоит **ровно перед** `n`-м с конца узлом.\n4. `slow.next = slow.next.next`.\n\nПочему `n + 1`, а не `n`: чтобы удалить узел, нужен его **предшественник**.\n\nЗаглушка нужна для случая, когда удаляется сама голова (`n = sz`): тогда `slow` останется на `dummy`, и ответом станет `dummy.next`.\n\n**Сложность:** время `O(sz)`, память `O(1)`.",
+  "theory": {
+    "topicKey": "two-pointers",
+    "titleRu": "Два указателя"
+  }
+}
