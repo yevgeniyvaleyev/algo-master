@@ -51,7 +51,8 @@
     "format": "prettier --write src data scripts",
     "scrape": "node scripts/scrape/scrape.mjs",
     "content:sync": "node scripts/content/sync.mjs",
-    "content:validate": "node scripts/content/validate.mjs"
+    "content:validate": "node scripts/content/validate.mjs",
+    "content:images": "node scripts/content/images.mjs"
   },
   "private": true,
   "jest": {

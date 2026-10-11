@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
-import { Platform, ScrollView, StyleSheet } from 'react-native';
-import Markdown from 'react-native-markdown-display';
+import { Image, Platform, ScrollView, StyleSheet } from 'react-native';
+import Markdown, { renderRules, type RenderRules } from 'react-native-markdown-display';
+
+import { bundledImages } from '@data/image-index';
 
 import { useColors, type Palette } from '@/theme';
 
@@ -46,12 +48,32 @@ function makeStyles(c: Palette) {
   });
 }
 
+/** Images bundled by scripts/content/images.mjs are shown from the app; anything else loads from the network. */
+const rules: RenderRules = {
+  image: (node, children, parent, styles, allowedImageHandlers, defaultImageHandler) => {
+    const asset = bundledImages[node.attributes.src];
+    if (asset == null) {
+      return renderRules.image!(node, children, parent, styles, allowedImageHandlers, defaultImageHandler);
+    }
+    const { width, height } = Image.resolveAssetSource(asset);
+    return (
+      <Image
+        key={node.key}
+        source={asset}
+        accessibilityLabel={node.attributes.alt}
+        resizeMode="contain"
+        style={[styles._VIEW_SAFE_image, { width: '100%', maxWidth: width, aspectRatio: width / height }]}
+      />
+    );
+  },
+};
+
 export function MarkdownView({ children }: { children: string }) {
   const colors = useColors();
   const style = useMemo(() => makeStyles(colors), [colors]);
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.content}>
-      <Markdown style={style}>{children}</Markdown>
+      <Markdown style={style} rules={rules}>{children}</Markdown>
     </ScrollView>
   );
 }
