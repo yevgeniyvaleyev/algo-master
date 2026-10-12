@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { DailyBars, Meter, ProgressRing } from '@/components/charts';
+import { DailyBars, Meter, ProgressRing, StackedMeter } from '@/components/charts';
 import { DayTimeline } from '@/components/DayTimeline';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { displayTitle } from '@/content/format';
@@ -239,7 +239,14 @@ export default function DashboardScreen() {
           );
         })}
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <Meter label="Всего" value={learned} total={total} color={colors.primary} />
+        <StackedMeter
+          label="Всего"
+          total={total}
+          parts={DIFFICULTIES.map((d) => ({
+            value: data.byDifficulty.find((x) => x.difficulty === d)?.learned ?? 0,
+            color: colors.difficulty[d],
+          }))}
+        />
       </View>
 
       <View style={card}>

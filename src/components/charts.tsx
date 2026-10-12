@@ -128,11 +128,53 @@ export function Meter({ label, value, total, color }: { label: string; value: nu
   );
 }
 
+/** Like Meter, but the fill is split into colored parts (e.g. learned per difficulty), each sized by its share of `total`. */
+export function StackedMeter({
+  label,
+  parts,
+  total,
+}: {
+  label: string;
+  parts: { value: number; color: string }[];
+  total: number;
+}) {
+  const colors = useColors();
+  const value = parts.reduce((sum, p) => sum + p.value, 0);
+  return (
+    <View style={styles.meter}>
+      <View style={styles.meterHead}>
+        <Text style={{ color: colors.text, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={{ color: colors.textMuted, fontVariant: ['tabular-nums'] }}>
+          {value}/{total}
+        </Text>
+      </View>
+      <View style={[styles.track, styles.stack, { backgroundColor: colors.surfaceAlt }]}>
+        {parts
+          .filter((p) => p.value > 0)
+          .map((p, i, shown) => (
+            <View
+              key={i}
+              style={[
+                { width: `${total > 0 ? (p.value / total) * 100 : 0}%`, backgroundColor: p.color },
+                // Round the end of the fill like Meter does.
+                i === shown.length - 1 && styles.stackEnd,
+              ]}
+            />
+          ))}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   meter: { gap: 6 },
   meterHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   track: { height: 8, borderRadius: 4, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 4 },
+  stack: { flexDirection: 'row' },
+  stackEnd: { borderTopRightRadius: 4, borderBottomRightRadius: 4 },
   barLabels: { flexDirection: 'row' },
   barLabel: { flex: 1, textAlign: 'center', fontWeight: '700', fontVariant: ['tabular-nums'] },
 });
