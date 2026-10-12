@@ -13,7 +13,7 @@ Architecture and commands are in [`CLAUDE.md`](../CLAUDE.md).
 - Algorithm screen tabs: Условие · Описание · Идея · Решение · Теория.
 - SQLite with migrations; the manifest is seeded and upserted by `seedVersion`.
 - The learn log drives the daily goal, the streak, and the 7/30-day chart.
-- The «По сложности» card shows Easy, Medium and Hard plus a «Всего» total.
+- The «По сложности» card shows Easy, Medium and Hard plus a «Всего» total; the «По темам» card shows learned/total per topic.
 - Topics can be created, renamed and deleted, and algorithms moved between them. Marks are changed in bulk mode on the list or from the algorithm screen.
 - Auto-unmark after N days.
 - The code viewer has VS Code-style highlighting and pinch or +/- zoom.
@@ -33,15 +33,14 @@ Architecture and commands are in [`CLAUDE.md`](../CLAUDE.md).
 
 ## Next
 
-**A. Own APK (EAS cloud build)**
-- `eas.json` with a `preview` profile that builds an APK, plus a white notification icon.
+**A. Own APK (EAS cloud build)** (`eas.json` and the notification icon are ready)
 - `npx eas-cli@latest build -p android --profile preview`, then install from the link or QR code.
 
-**B. Phase 5 — Android app blocking.** A local Expo module `modules/app-blocker` (Kotlin) with a config plugin.
+**B. Phase 5 — Android app blocking** (implemented, waiting for the first device test). A local Expo module `modules/app-blocker` (Kotlin); its own manifest declares the service and activity, so no config plugin is needed.
 - An `AccessibilityService` watches `TYPE_WINDOW_STATE_CHANGED` to find the foreground package.
 - The JS side writes state to SharedPreferences through the module: blockedPackages, dailyGoal, learnedToday, unlock minutes earned (learnedToday × minutesPerAlgo), and the date.
 - The native side tracks time spent in blocked apps today. If the goal isn't met and used ≥ earned, it starts a full-screen `BlockActivity` («Изучи алгоритм») with an «Открыть AlgoMaster» button. Counters reset at midnight.
-- The installed-apps picker uses PackageManager (`QUERY_ALL_PACKAGES` is fine for a sideloaded app). There is a permission onboarding flow for Accessibility.
+- The installed-apps picker (`/blocked-apps`) lists launchable apps through a launcher `<queries>` entry, so `QUERY_ALL_PACKAGES` isn't needed. Settings shows whether the service is on, with buttons to Accessibility settings and to App info (for Android 13+ «restricted settings»).
 - The dashboard shows the entertainment minutes left today.
 
 ## Verification

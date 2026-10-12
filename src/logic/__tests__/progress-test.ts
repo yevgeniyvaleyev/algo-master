@@ -1,5 +1,5 @@
 import { dayKey, lastDays } from '../dates';
-import { computeStreak, earnedMinutes, expirationCutoff } from '../progress';
+import { computeStreak, earnedMinutes, expirationCutoff, minutesLeft } from '../progress';
 
 const today = new Date(2026, 9, 11, 15, 0);
 
@@ -57,5 +57,17 @@ describe('earnedMinutes', () => {
 
   it('is unlimited once goal is met', () => {
     expect(earnedMinutes(3, 3, 30)).toBeNull();
+  });
+});
+
+describe('minutesLeft', () => {
+  it('subtracts time spent in blocked apps from earned minutes', () => {
+    expect(minutesLeft(2, 3, 30, 15 * 60_000)).toBe(45);
+    expect(minutesLeft(0, 3, 30, 0)).toBe(0);
+    expect(minutesLeft(1, 3, 30, 45 * 60_000)).toBe(0);
+  });
+
+  it('is unlimited once the goal is met', () => {
+    expect(minutesLeft(3, 3, 30, 999 * 60_000)).toBeNull();
   });
 });

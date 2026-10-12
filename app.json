@@ -28,13 +28,21 @@
       [
         "expo-notifications",
         {
-          "color": "#3B5BDB"
+          "color": "#3B5BDB",
+          "icon": "./assets/notification-icon.png"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "scheme": "algomaster",
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6b7649b7-80e6-4256-b854-93f2757bb402"
+      }
     }
   }
 }

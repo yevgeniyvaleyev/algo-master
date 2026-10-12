@@ -244,6 +244,24 @@ export async function getDifficultyStats(): Promise<DifficultyStat[]> {
     GROUP BY a.difficulty`);
 }
 
+export interface TopicStat {
+  id: number;
+  name: string;
+  total: number;
+  learned: number;
+}
+
+/** Learned/total per topic in list order; empty topics are skipped. */
+export async function getTopicStats(): Promise<TopicStat[]> {
+  return db.getAllAsync<TopicStat>(`
+    SELECT t.id, t.name, COUNT(a.slug) AS total, COUNT(p.slug) AS learned
+    FROM topics t
+    JOIN algos a ON a.topic_id = t.id
+    LEFT JOIN progress p ON p.slug = a.slug
+    GROUP BY t.id
+    ORDER BY t.sort_order, t.id`);
+}
+
 export async function getTotalLearnEvents(): Promise<number> {
   const row = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM learn_log');
   return row?.n ?? 0;

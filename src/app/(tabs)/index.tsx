@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { AppBlocker } from '@modules/app-blocker';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -7,10 +8,10 @@ import { DailyBars, Meter, ProgressRing } from '@/components/charts';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { displayTitle } from '@/content/format';
 import type { Difficulty } from '@/content/types';
-import { getDailyCounts, getDifficultyStats, getNextUnlearned, getTotalLearnEvents } from '@/db/repo';
+import { getDailyCounts, getDifficultyStats, getNextUnlearned, getTopicStats, getTotalLearnEvents } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
 import { dayKey, lastDays } from '@/logic/dates';
-import { computeStreak } from '@/logic/progress';
+import { computeStreak, minutesLeft } from '@/logic/progress';
 import { useSettings } from '@/store/settings';
 import { useColors } from '@/theme';
 
@@ -18,18 +19,23 @@ const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 async function loadDashboard() {
-  const [counts, byDifficulty, totalEvents, next] = await Promise.all([
+  const [counts, byDifficulty, byTopic, totalEvents, next] = await Promise.all([
     getDailyCounts(366),
     getDifficultyStats(),
+    getTopicStats(),
     getTotalLearnEvents(),
     getNextUnlearned(3),
   ]);
-  return { counts, byDifficulty, totalEvents, next };
+  return { counts, byDifficulty, byTopic, totalEvents, next, usedMs: AppBlocker?.getUsedMs() ?? 0 };
 }
+
+const formatLeft = (left: number | null) => (left == null ? 'без ограничений' : `${left} мин.`);
 
 export default function DashboardScreen() {
   const colors = useColors();
   const goal = useSettings((s) => s.dailyGoal);
+  const minutesPerAlgo = useSettings((s) => s.minutesPerAlgo);
+  const blocking = useSettings((s) => s.blockedPackages.length > 0) && AppBlocker != null;
   const data = useQuery(loadDashboard);
   const [range, setRange] = useState<7 | 30>(7);
 
@@ -64,8 +70,35 @@ export default function DashboardScreen() {
             <Ionicons name="repeat" size={18} color={colors.primary} />
             <Text style={{ color: colors.text }}>Всего повторений: {data.totalEvents}</Text>
           </View>
+          {blocking && (
+            <View style={styles.statRow}>
+              <Ionicons name="game-controller" size={18} color={colors.difficulty.hard} />
+              <Text style={{ color: colors.text }}>
+                Развлечения: {formatLeft(minutesLeft(today, goal, minutesPerAlgo, data.usedMs))}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
+
+      {data.next.length > 0 && (
+        <View style={card}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Следующие</Text>
+          {data.next.map((a) => (
+            <Pressable
+              key={a.slug}
+              onPress={() => router.push({ pathname: '/algo/[slug]', params: { slug: a.slug } })}
+              style={styles.nextRow}
+            >
+              <Text style={{ color: colors.text, flex: 1 }} numberOfLines={1}>
+                {displayTitle(a)}
+              </Text>
+              <DifficultyBadge difficulty={a.difficulty} />
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       <View style={card}>
         <View style={styles.cardHead}>
@@ -103,21 +136,17 @@ export default function DashboardScreen() {
         <Meter label="Всего" value={learned} total={total} color={colors.primary} />
       </View>
 
-      {data.next.length > 0 && (
+      {data.byTopic.length > 0 && (
         <View style={card}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Следующие</Text>
-          {data.next.map((a) => (
-            <Pressable
-              key={a.slug}
-              onPress={() => router.push({ pathname: '/algo/[slug]', params: { slug: a.slug } })}
-              style={styles.nextRow}
-            >
-              <Text style={{ color: colors.text, flex: 1 }} numberOfLines={1}>
-                {displayTitle(a)}
-              </Text>
-              <DifficultyBadge difficulty={a.difficulty} />
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>По темам</Text>
+          {data.byTopic.map((t) => (
+            <Meter
+              key={t.id}
+              label={t.name}
+              value={t.learned}
+              total={t.total}
+              color={t.learned === t.total ? colors.success : colors.primary}
+            />
           ))}
         </View>
       )}

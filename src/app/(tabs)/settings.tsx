@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ReactNode } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { AppBlocker } from '@modules/app-blocker';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { runExpiration } from '@/logic/actions';
 import { ensureNotificationPermission, remindersSupported } from '@/notifications/reminders';
@@ -60,9 +62,22 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   );
 }
 
+/** Whether the accessibility service is on; re-read on focus and when returning from system settings. */
+function useServiceEnabled() {
+  const [enabled, setEnabled] = useState(() => AppBlocker?.isServiceEnabled() ?? false);
+  const refresh = useCallback(() => setEnabled(AppBlocker?.isServiceEnabled() ?? false), []);
+  useFocusEffect(refresh);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => state === 'active' && refresh());
+    return () => sub.remove();
+  }, [refresh]);
+  return enabled;
+}
+
 export default function SettingsScreen() {
   const colors = useColors();
   const s = useSettings();
+  const serviceEnabled = useServiceEnabled();
 
   const card = [styles.card, { backgroundColor: colors.surface, borderColor: colors.border }];
 
@@ -187,9 +202,50 @@ export default function SettingsScreen() {
         <Row label="Минут за алгоритм" hint="Сколько минут развлечений даёт каждый изученный алгоритм">
           <Stepper value={s.minutesPerAlgo} min={5} max={180} onChange={(v) => s.update({ minutesPerAlgo: v })} />
         </Row>
-        <Row label="Блокируемые приложения" hint="Будет доступно на последнем этапе">
-          <Text style={{ color: colors.textMuted }}>{s.blockedPackages.length}</Text>
+        <Row
+          label="Служба блокировки"
+          hint={
+            !AppBlocker
+              ? 'Недоступно в Expo Go — работает в установленном приложении (APK)'
+              : serviceEnabled
+                ? 'Включена'
+                : 'Выключена: включите «AlgoMaster: блокировка приложений» в специальных возможностях'
+          }
+        >
+          {AppBlocker && !serviceEnabled && (
+            <Pressable
+              onPress={() => AppBlocker?.openAccessibilitySettings()}
+              style={[styles.button, { backgroundColor: colors.primary }]}
+            >
+              <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Включить</Text>
+            </Pressable>
+          )}
+          {AppBlocker && serviceEnabled && <Ionicons name="checkmark-circle" size={24} color={colors.success} />}
         </Row>
+        {AppBlocker && !serviceEnabled && (
+          <Row
+            label="Настройка недоступна?"
+            hint="Для установленного APK Android может скрывать её: О приложении → ⋮ → «Разрешить ограниченные настройки», затем снова «Включить»"
+          >
+            <Pressable
+              onPress={() => AppBlocker?.openAppSettings()}
+              style={[styles.button, { borderColor: colors.border, borderWidth: 1 }]}
+            >
+              <Text style={{ color: colors.text, fontWeight: '600' }}>О приложении</Text>
+            </Pressable>
+          </Row>
+        )}
+        <Pressable onPress={() => router.push('/blocked-apps')} disabled={!AppBlocker}>
+          <Row
+            label="Блокируемые приложения"
+            hint={s.blockedPackages.length === 0 ? 'Не выбраны — блокировка выключена' : undefined}
+          >
+            <View style={styles.stepper}>
+              <Text style={{ color: colors.textMuted, fontWeight: '700' }}>{s.blockedPackages.length}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </View>
+          </Row>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -219,6 +275,7 @@ const styles = StyleSheet.create({
   hint: { fontSize: 12 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepperValue: { minWidth: 44, textAlign: 'center', fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  button: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
   segment: { flexDirection: 'row', borderRadius: 10, padding: 3, gap: 2 },
   segmentItem: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
 });

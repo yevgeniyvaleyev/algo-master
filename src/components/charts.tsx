@@ -77,7 +77,9 @@ export function Meter({ label, value, total, color }: { label: string; value: nu
   return (
     <View style={styles.meter}>
       <View style={styles.meterHead}>
-        <Text style={{ color: colors.text, fontWeight: '600' }}>{label}</Text>
+        <Text style={{ color: colors.text, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+          {label}
+        </Text>
         <Text style={{ color: colors.textMuted, fontVariant: ['tabular-nums'] }}>
           {value}/{total}
         </Text>
@@ -91,7 +93,7 @@ export function Meter({ label, value, total, color }: { label: string; value: nu
 
 const styles = StyleSheet.create({
   meter: { gap: 6 },
-  meterHead: { flexDirection: 'row', justifyContent: 'space-between' },
+  meterHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   track: { height: 8, borderRadius: 4, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 4 },
 });

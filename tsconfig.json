@@ -5,7 +5,8 @@
     "types": ["jest"],
     "paths": {
       "@/*": ["./src/*"],
-      "@data/*": ["./data/*"]
+      "@data/*": ["./data/*"],
+      "@modules/*": ["./modules/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],

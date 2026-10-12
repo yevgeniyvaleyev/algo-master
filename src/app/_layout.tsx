@@ -8,7 +8,8 @@ import { manifest } from '@/content';
 import { migrate } from '@/db/client';
 import { runSeed } from '@/db/repo';
 import { runExpiration } from '@/logic/actions';
-import { ensureNotificationPermission, syncReminders } from '@/notifications/reminders';
+import { BACKGROUND_SETTING_KEYS, syncBackground } from '@/logic/background';
+import { ensureNotificationPermission } from '@/notifications/reminders';
 import { useSettings } from '@/store/settings';
 import { useColors, useIsDark } from '@/theme';
 
@@ -18,17 +19,8 @@ async function bootstrap() {
   await useSettings.getState().hydrate();
   await runExpiration();
   if (useSettings.getState().remindersEnabled) await ensureNotificationPermission();
-  await syncReminders();
+  await syncBackground();
 }
-
-/** Settings that change the reminder plan. */
-const REMINDER_KEYS = [
-  'remindersEnabled',
-  'reminderStartHour',
-  'reminderEndHour',
-  'reminderIntervalHours',
-  'dailyGoal',
-] as const;
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -40,10 +32,10 @@ export default function RootLayout() {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
       // The day may have changed, or marks expired, while the app was in the background.
-      void runExpiration().then(syncReminders);
+      void runExpiration().then(syncBackground);
     });
     const unsubscribe = useSettings.subscribe((next, prev) => {
-      if (REMINDER_KEYS.some((k) => next[k] !== prev[k])) void syncReminders();
+      if (BACKGROUND_SETTING_KEYS.some((k) => next[k] !== prev[k])) void syncBackground();
     });
     return () => {
       sub.remove();
@@ -82,6 +74,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="algo/[slug]" options={{ title: '' }} />
           <Stack.Screen name="solution-editor/[slug]" options={{ title: 'Моё решение' }} />
+          <Stack.Screen name="blocked-apps" options={{ title: 'Блокируемые приложения' }} />
         </Stack>
       </ThemeProvider>
     </GestureHandlerRootView>

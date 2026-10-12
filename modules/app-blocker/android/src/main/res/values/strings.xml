@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_blocker_service_label">AlgoMaster: блокировка приложений</string>
+  <string name="app_blocker_service_description">Определяет, какое приложение открыто, и блокирует выбранные развлекательные приложения, пока дневная цель AlgoMaster не выполнена. Содержимое экрана не читается.</string>
+</resources>
