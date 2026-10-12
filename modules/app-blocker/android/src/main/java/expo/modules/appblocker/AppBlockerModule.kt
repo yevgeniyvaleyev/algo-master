@@ -16,7 +16,9 @@ class BlockerConfig : Record {
   @Field var blockedPackages: List<String> = emptyList()
   @Field var dailyGoal: Int = 3
   @Field var learnedToday: Int = 0
-  @Field var minutesPerAlgo: Int = 30
+  @Field var grantedMs: Double = 0.0
+  @Field var deadlineMs: Double = 0.0
+  @Field var reserveMs: Double = 0.0
   @Field var day: String = ""
 }
 

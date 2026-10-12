@@ -9,6 +9,9 @@ import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /** Full-screen "learn an algorithm first" screen shown instead of a blocked app. */
 class BlockActivity : Activity() {
@@ -17,7 +20,15 @@ class BlockActivity : Activity() {
     val dp = resources.displayMetrics.density
     val learned = BlockerStore.learnedToday(this)
     val goal = BlockerStore.goal(this)
-    val minutes = BlockerStore.minutesPerAlgo(this)
+    val deadline = BlockerStore.deadlineMs(this)
+    val deadlineText = if (deadline > 0) SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(deadline)) else null
+    val reason = when {
+      learned == 0 -> "Время на развлечения открывается изученными алгоритмами."
+      // Balance left, so the deadline cap is what blocks.
+      BlockerStore.grantedMs(this) > BlockerStore.usedTodayMs(this) ->
+        "До конца учебного дня осталось только время на учёбу."
+      else -> "Заработанное время на развлечения закончилось."
+    }
 
     fun label(value: String, sizeSp: Float, color: Int, bold: Boolean = false) =
       TextView(this).apply {
@@ -38,8 +49,9 @@ class BlockActivity : Activity() {
       addView(label("Сначала изучи алгоритм", 26f, Color.WHITE, bold = true))
       addView(
         label(
-          "Изучено сегодня: $learned из $goal.\n" +
-            "Каждый изученный алгоритм открывает $minutes мин., а выполненная цель снимает блокировку до конца дня.",
+          "Изучено сегодня: $learned из $goal." +
+            (deadlineText?.let { " Учебный день до $it — осталось изучить ${goal - learned}." } ?: "") +
+            "\n$reason Выполненная цель снимает блокировку до конца дня.",
           16f,
           Color.parseColor("#B0B6C3"),
         ),

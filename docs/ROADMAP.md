@@ -28,6 +28,7 @@ Architecture and commands are in [`CLAUDE.md`](../CLAUDE.md).
 - All 87 problem images are bundled for offline use (`content:images`).
 
 **Extras**
+- Forecast: when everything will be learned, by the daily goal and by the recent pace, counting refreshes caused by auto-unmark.
 - Suggestions: topics take turns, each giving its easiest unlearned algorithm, starting after the most recently learned topic.
 - Reminders: local notifications every N hours within a time window while the daily goal isn't met, planned 7 days ahead. They need an installed build, not Expo Go.
 
@@ -42,6 +43,7 @@ Architecture and commands are in [`CLAUDE.md`](../CLAUDE.md).
 - The native side tracks time spent in blocked apps today. If the goal isn't met and used ≥ earned, it starts a full-screen `BlockActivity` («Изучи алгоритм») with an «Открыть AlgoMaster» button. Counters reset at midnight.
 - The installed-apps picker (`/blocked-apps`) lists launchable apps through a launcher `<queries>` entry, so `QUERY_ALL_PACKAGES` isn't needed. Settings shows whether the service is on, with buttons to Accessibility settings and to App info (for Android 13+ «restricted settings»).
 - The dashboard shows the entertainment minutes left today.
+- Adaptive budget: grants depend on the time left before the end of the learning day minus the estimated learning time of the remaining algorithms (base × difficulty factor), so a late start gets little or no entertainment time. The «Учебный день» timeline on the dashboard shows it.
 
 ## Verification
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run content:validate`; re-running every batch with `apply.mjs` is a full content regression check.

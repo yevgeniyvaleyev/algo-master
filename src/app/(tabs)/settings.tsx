@@ -4,10 +4,14 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
+import type { Difficulty } from '@/content/types';
 import { runExpiration } from '@/logic/actions';
 import { ensureNotificationPermission, remindersSupported } from '@/notifications/reminders';
 import { useSettings, type ThemeMode } from '@/store/settings';
 import { useColors } from '@/theme';
+
+const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
+const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 const hourLabel = (h: number) => `${String(h).padStart(2, '0')}:00`;
 
@@ -24,6 +28,7 @@ function Stepper({
   onChange,
   suffix,
   format,
+  step = 1,
 }: {
   value: number;
   min: number;
@@ -31,18 +36,21 @@ function Stepper({
   onChange: (v: number) => void;
   suffix?: string;
   format?: (v: number) => string;
+  step?: number;
 }) {
   const colors = useColors();
+  // Rounded so fractional steps (0.25) don't accumulate float noise.
+  const change = (v: number) => onChange(Math.round(Math.min(max, Math.max(min, v)) * 100) / 100);
   return (
     <View style={styles.stepper}>
-      <Pressable hitSlop={8} disabled={value <= min} onPress={() => onChange(Math.max(min, value - 1))}>
+      <Pressable hitSlop={8} disabled={value <= min} onPress={() => change(value - step)}>
         <Ionicons name="remove-circle-outline" size={26} color={value <= min ? colors.border : colors.primary} />
       </Pressable>
       <Text style={[styles.stepperValue, { color: colors.text }]}>
         {format ? format(value) : value}
         {suffix}
       </Text>
-      <Pressable hitSlop={8} disabled={value >= max} onPress={() => onChange(Math.min(max, value + 1))}>
+      <Pressable hitSlop={8} disabled={value >= max} onPress={() => change(value + step)}>
         <Ionicons name="add-circle-outline" size={26} color={value >= max ? colors.border : colors.primary} />
       </Pressable>
     </View>
@@ -109,6 +117,50 @@ export default function SettingsScreen() {
         <Row label="Алгоритмов в день">
           <Stepper value={s.dailyGoal} min={1} max={20} onChange={(v) => s.update({ dailyGoal: v })} />
         </Row>
+        <Row label="Учебный день с" hint="Окно напоминаний и начало шкалы дня на главном экране">
+          <Stepper
+            value={s.reminderStartHour}
+            min={0}
+            max={s.reminderEndHour - 1}
+            format={hourLabel}
+            onChange={(v) => s.update({ reminderStartHour: v })}
+          />
+        </Row>
+        <Row label="Учебный день до" hint="К этому времени цель должна быть выполнена">
+          <Stepper
+            value={s.reminderEndHour}
+            min={s.reminderStartHour + 1}
+            max={23}
+            format={hourLabel}
+            onChange={(v) => s.update({ reminderEndHour: v })}
+          />
+        </Row>
+        <Row label="Время на алгоритм" hint="Сколько минут нужно на один Easy-алгоритм (с запасом)">
+          <Stepper
+            value={s.learnMinutes}
+            min={5}
+            max={120}
+            step={5}
+            suffix=" мин."
+            onChange={(v) => s.update({ learnMinutes: v })}
+          />
+        </Row>
+        {DIFFICULTIES.map((d) => (
+          <Row
+            key={d}
+            label={`Коэффициент ${DIFFICULTY_LABELS[d]}`}
+            hint={`≈ ${Math.round(s.learnMinutes * s.difficultyFactors[d])} мин.`}
+          >
+            <Stepper
+              value={s.difficultyFactors[d]}
+              min={0.5}
+              max={4}
+              step={0.25}
+              format={(v) => `×${v}`}
+              onChange={(v) => s.update({ difficultyFactors: { ...s.difficultyFactors, [d]: v } })}
+            />
+          </Row>
+        ))}
         <Row
           label="Авто-снятие отметки"
           hint="Изученные алгоритмы снова становятся неизученными через заданное число дней"
@@ -166,24 +218,6 @@ export default function SettingsScreen() {
         </Row>
         {remindersSupported && s.remindersEnabled && (
           <>
-            <Row label="С">
-              <Stepper
-                value={s.reminderStartHour}
-                min={0}
-                max={s.reminderEndHour}
-                format={hourLabel}
-                onChange={(v) => s.update({ reminderStartHour: v })}
-              />
-            </Row>
-            <Row label="До">
-              <Stepper
-                value={s.reminderEndHour}
-                min={s.reminderStartHour}
-                max={23}
-                format={hourLabel}
-                onChange={(v) => s.update({ reminderEndHour: v })}
-              />
-            </Row>
             <Row label="Каждые">
               <Stepper
                 value={s.reminderIntervalHours}
@@ -199,7 +233,10 @@ export default function SettingsScreen() {
 
       <Text style={[styles.section, { color: colors.textMuted }]}>Блокировка приложений</Text>
       <View style={card}>
-        <Row label="Минут за алгоритм" hint="Сколько минут развлечений даёт каждый изученный алгоритм">
+        <Row
+          label="Максимум минут за алгоритм"
+          hint="Изученный алгоритм даёт долю свободного времени до конца учебного дня, но не больше этого"
+        >
           <Stepper value={s.minutesPerAlgo} min={5} max={180} onChange={(v) => s.update({ minutesPerAlgo: v })} />
         </Row>
         <Row

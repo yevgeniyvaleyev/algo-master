@@ -1,5 +1,5 @@
 import { dayKey, lastDays } from '../dates';
-import { computeStreak, earnedMinutes, expirationCutoff, minutesLeft } from '../progress';
+import { computeStreak, expirationCutoff } from '../progress';
 
 const today = new Date(2026, 9, 11, 15, 0);
 
@@ -46,28 +46,5 @@ describe('expirationCutoff', () => {
 
   it('clamps negative days to zero', () => {
     expect(expirationCutoff(true, -3, 500)).toBe(500);
-  });
-});
-
-describe('earnedMinutes', () => {
-  it('grants minutes per learned algo before goal', () => {
-    expect(earnedMinutes(1, 3, 30)).toBe(30);
-    expect(earnedMinutes(0, 3, 30)).toBe(0);
-  });
-
-  it('is unlimited once goal is met', () => {
-    expect(earnedMinutes(3, 3, 30)).toBeNull();
-  });
-});
-
-describe('minutesLeft', () => {
-  it('subtracts time spent in blocked apps from earned minutes', () => {
-    expect(minutesLeft(2, 3, 30, 15 * 60_000)).toBe(45);
-    expect(minutesLeft(0, 3, 30, 0)).toBe(0);
-    expect(minutesLeft(1, 3, 30, 45 * 60_000)).toBe(0);
-  });
-
-  it('is unlimited once the goal is met', () => {
-    expect(minutesLeft(3, 3, 30, 999 * 60_000)).toBeNull();
   });
 });

@@ -6,7 +6,12 @@ export interface BlockerConfig {
   blockedPackages: string[];
   dailyGoal: number;
   learnedToday: number;
-  minutesPerAlgo: number;
+  /** Entertainment time granted today by learning (see src/logic/budget.ts). */
+  grantedMs: number;
+  /** End of the learning day (epoch ms); the goal must be reachable by then. */
+  deadlineMs: number;
+  /** Learning time reserved for the algorithms still needed today. */
+  reserveMs: number;
   /** Local day ('YYYY-MM-DD') that learnedToday refers to. */
   day: string;
 }

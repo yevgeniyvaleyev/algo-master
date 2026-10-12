@@ -231,6 +231,18 @@ export async function getTodayCount(today: Date = new Date()): Promise<number> {
   return row?.n ?? 0;
 }
 
+/** First learn time of each algorithm learned today (distinct slugs), oldest first. */
+export async function getTodayLearned(today: Date = new Date()): Promise<{ ts: number; difficulty: Difficulty }[]> {
+  return db.getAllAsync<{ ts: number; difficulty: Difficulty }>(
+    `SELECT MIN(l.ts) AS ts, a.difficulty
+     FROM learn_log l JOIN algos a ON a.slug = l.slug
+     WHERE l.day = ?
+     GROUP BY l.slug
+     ORDER BY ts`,
+    dayKey(today),
+  );
+}
+
 export interface DifficultyStat {
   difficulty: Difficulty;
   total: number;
@@ -260,6 +272,12 @@ export async function getTopicStats(): Promise<TopicStat[]> {
     LEFT JOIN progress p ON p.slug = a.slug
     GROUP BY t.id
     ORDER BY t.sort_order, t.id`);
+}
+
+/** `learned_at` of every currently learned algorithm. */
+export async function getLearnedTimes(): Promise<number[]> {
+  const rows = await db.getAllAsync<{ t: number }>('SELECT learned_at AS t FROM progress');
+  return rows.map((r) => r.t);
 }
 
 export async function getTotalLearnEvents(): Promise<number> {

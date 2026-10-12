@@ -13,9 +13,9 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
 
 /**
- * Watches which app is in the foreground. Time spent in blocked apps is counted against the minutes earned today
- * (learned algorithms × minutes per algorithm); when it runs out, the app is sent home and BlockActivity is shown.
- * Once the daily goal is met nothing is blocked.
+ * Watches which app is in the foreground. Time spent in blocked apps is counted against today's adaptive budget
+ * (granted by learning, capped by the slack before the learning-day deadline; planned in JS, see budget.ts); when it
+ * runs out, BlockActivity covers the app. Once the daily goal is met nothing is blocked.
  */
 class BlockerService : AccessibilityService() {
   private val handler = Handler(Looper.getMainLooper())
@@ -100,7 +100,8 @@ class BlockerService : AccessibilityService() {
       return
     }
     val used = BlockerStore.usedTodayMs(this) + (SystemClock.elapsedRealtime() - start)
-    val remaining = BlockerStore.earnedMs(this) - used
+    // Both the balance and the deadline slack shrink 1:1 with time while the app is used, so this delay is exact.
+    val remaining = BlockerStore.availableMs(this, used)
     if (remaining <= 0) block() else handler.postDelayed(recheck, minOf(remaining, 60_000L))
   }
 

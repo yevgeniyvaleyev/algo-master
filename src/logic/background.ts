@@ -1,7 +1,7 @@
 import { syncBlocker } from '@/blocker/sync';
 import { syncReminders } from '@/notifications/reminders';
 
-/** Settings that affect reminders or blocking; changing any of them re-syncs both. */
+/** Settings that affect reminders or blocking (the learning day doubles as the reminder window); changing any re-syncs both. */
 export const BACKGROUND_SETTING_KEYS = [
   'remindersEnabled',
   'reminderStartHour',
@@ -9,6 +9,8 @@ export const BACKGROUND_SETTING_KEYS = [
   'reminderIntervalHours',
   'dailyGoal',
   'minutesPerAlgo',
+  'learnMinutes',
+  'difficultyFactors',
   'blockedPackages',
 ] as const;
 

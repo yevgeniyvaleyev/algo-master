@@ -2,12 +2,17 @@ import { Appearance } from 'react-native';
 import { create } from 'zustand';
 
 import { kvGet, kvSet } from '@/db/client';
+import type { DifficultyFactors } from '@/logic/budget';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 export interface Settings {
   dailyGoal: number;
+  /** Upper bound of entertainment minutes a single learned algorithm can grant. */
   minutesPerAlgo: number;
+  /** Estimated minutes to learn an Easy algorithm; harder ones are multiplied by difficultyFactors. */
+  learnMinutes: number;
+  difficultyFactors: DifficultyFactors;
   autoUnmark: boolean;
   expireDays: number;
   theme: ThemeMode;
@@ -24,6 +29,8 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   dailyGoal: 3,
   minutesPerAlgo: 30,
+  learnMinutes: 30,
+  difficultyFactors: { easy: 1, medium: 1.5, hard: 2 },
   autoUnmark: false,
   expireDays: 14,
   theme: 'system',

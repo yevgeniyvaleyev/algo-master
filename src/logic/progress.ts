@@ -29,18 +29,3 @@ export function isGoalMet(learnedToday: number, goal: number): boolean {
   return learnedToday >= goal;
 }
 
-/** Entertainment minutes earned today; unlimited (null) once the daily goal is met. */
-/**
- * Entertainment minutes left today: earned minutes minus time already spent in blocked apps.
- * null = unlimited (goal met).
- */
-export function minutesLeft(learnedToday: number, goal: number, minutesPerAlgo: number, usedMs: number): number | null {
-  const earned = earnedMinutes(learnedToday, goal, minutesPerAlgo);
-  if (earned == null) return null;
-  return Math.max(0, Math.floor(earned - usedMs / 60_000));
-}
-
-export function earnedMinutes(learnedToday: number, goal: number, minutesPerAlgo: number): number | null {
-  if (isGoalMet(learnedToday, goal)) return null;
-  return learnedToday * minutesPerAlgo;
-}

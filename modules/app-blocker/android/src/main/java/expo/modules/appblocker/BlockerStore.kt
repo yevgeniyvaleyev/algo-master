@@ -24,7 +24,9 @@ object BlockerStore {
       .putStringSet("blocked", config.blockedPackages.toSet())
       .putInt("goal", config.dailyGoal)
       .putInt("learned", config.learnedToday)
-      .putInt("minutesPerAlgo", config.minutesPerAlgo)
+      .putLong("grantedMs", config.grantedMs.toLong())
+      .putLong("deadlineMs", config.deadlineMs.toLong())
+      .putLong("reserveMs", config.reserveMs.toLong())
       .putString("day", config.day)
       .apply()
   }
@@ -36,8 +38,6 @@ object BlockerStore {
 
   fun goal(ctx: Context): Int = prefs(ctx).getInt("goal", 3)
 
-  fun minutesPerAlgo(ctx: Context): Int = prefs(ctx).getInt("minutesPerAlgo", 30)
-
   /** Learned today; a config written on an earlier day counts as 0 (new day, nothing learned yet). */
   fun learnedToday(ctx: Context): Int {
     val p = prefs(ctx)
@@ -46,7 +46,24 @@ object BlockerStore {
 
   fun goalMet(ctx: Context): Boolean = learnedToday(ctx) >= goal(ctx)
 
-  fun earnedMs(ctx: Context): Long = learnedToday(ctx).toLong() * minutesPerAlgo(ctx) * 60_000L
+  private fun isToday(ctx: Context): Boolean = prefs(ctx).getString("day", "") == today()
+
+  /** Entertainment time granted today; 0 when the config is from an earlier day. */
+  fun grantedMs(ctx: Context): Long = if (isToday(ctx)) prefs(ctx).getLong("grantedMs", 0L) else 0L
+
+  /** End of today's learning day (epoch ms); 0 when the config is from an earlier day. */
+  fun deadlineMs(ctx: Context): Long = if (isToday(ctx)) prefs(ctx).getLong("deadlineMs", 0L) else 0L
+
+  /**
+   * Spendable time right now: what learning granted minus what was used, but never more than the slack before the
+   * deadline once the learning time for the rest of the goal is reserved. Computed in JS by availableMs() as well.
+   */
+  fun availableMs(ctx: Context, usedMs: Long, nowMs: Long = System.currentTimeMillis()): Long {
+    if (!isToday(ctx)) return 0L
+    val p = prefs(ctx)
+    val slack = p.getLong("deadlineMs", 0L) - nowMs - p.getLong("reserveMs", 0L)
+    return minOf(p.getLong("grantedMs", 0L) - usedMs, slack)
+  }
 
   fun usedTodayMs(ctx: Context): Long {
     val p = prefs(ctx)
