@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { DifficultyBadge } from '@/components/DifficultyBadge';
@@ -10,6 +10,7 @@ import { UNCATEGORIZED_KEY } from '@/db/client';
 import { listTopicsWithAlgos, type AlgoRow, type TopicWithAlgos } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
 import { createTopic, deleteTopic, moveAlgo, renameTopic, setLearnedMany } from '@/logic/actions';
+import { useSettings } from '@/store/settings';
 import { useColors } from '@/theme';
 
 type Filter = 'all' | 'pending';
@@ -25,7 +26,9 @@ export default function AlgosScreen() {
   const colors = useColors();
   const topics = useQuery(listTopicsWithAlgos);
   const [filter, setFilter] = useState<Filter>('all');
-  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  // Manual overrides are persisted; otherwise a topic is collapsed once all its algos are learned.
+  const collapsedTopics = useSettings((s) => s.collapsedTopics);
+  const updateSettings = useSettings((s) => s.update);
   const [dialog, setDialog] = useState<Dialog>(null);
   // Bulk mark mode: slugs whose learned state will be flipped on save. null = mode off.
   // Marks can only change here (or on the algorithm screen), so a stray tap can't skew the stats.
@@ -47,26 +50,27 @@ export default function AlgosScreen() {
     setPending(null);
   };
 
+  const isCollapsed = useCallback(
+    (topic: TopicWithAlgos) =>
+      collapsedTopics[topic.id] ?? (topic.algos.length > 0 && topic.learned === topic.algos.length),
+    [collapsedTopics],
+  );
+
   const sections = useMemo(
     () =>
       (topics ?? []).map((topic) => ({
         topic,
-        data: collapsed.has(topic.id)
+        data: isCollapsed(topic)
           ? []
           : filter === 'pending'
             ? topic.algos.filter((a) => a.learnedAt == null)
             : topic.algos,
       })),
-    [topics, collapsed, filter],
+    [topics, isCollapsed, filter],
   );
 
-  const toggleCollapsed = (id: number) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggleCollapsed = (topic: TopicWithAlgos) =>
+    updateSettings({ collapsedTopics: { ...collapsedTopics, [topic.id]: !isCollapsed(topic) } });
 
   const confirmDelete = (topic: TopicWithAlgos) =>
     Alert.alert(
@@ -116,12 +120,12 @@ export default function AlgosScreen() {
         contentContainerStyle={styles.listContent}
         renderSectionHeader={({ section: { topic } }) => (
           <Pressable
-            onPress={() => toggleCollapsed(topic.id)}
+            onPress={() => toggleCollapsed(topic)}
             onLongPress={() => setDialog({ kind: 'topicMenu', topic })}
             style={[styles.header, { backgroundColor: colors.background, borderColor: colors.border }]}
           >
             <Ionicons
-              name={collapsed.has(topic.id) ? 'chevron-forward' : 'chevron-down'}
+              name={isCollapsed(topic) ? 'chevron-forward' : 'chevron-down'}
               size={18}
               color={colors.textMuted}
             />

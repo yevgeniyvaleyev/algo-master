@@ -35,38 +35,75 @@ export function ProgressRing({ value, goal, size = 140 }: { value: number; goal:
   );
 }
 
-/** Daily bar chart; bars that reach the goal are drawn in the success color, with a dashed goal line. */
-export function DailyBars({ values, goal, height = 120 }: { values: number[]; goal: number; height?: number }) {
+/**
+ * Daily bar chart; bars that reach the goal are drawn in the success color, with a dashed goal line.
+ * Each day's count is printed under its bar (empty days stay blank), with optional per-day labels below.
+ */
+export function DailyBars({
+  values,
+  goal,
+  labels,
+  height = 120,
+}: {
+  values: number[];
+  goal: number;
+  labels?: string[];
+  height?: number;
+}) {
   const colors = useColors();
   const max = Math.max(goal, ...values, 1);
   const gap = values.length > 14 ? 2 : 6;
+  const dense = values.length > 14;
   return (
-    <View style={{ height }}>
-      <Svg width="100%" height={height} viewBox={`0 0 ${values.length * 20} ${height}`} preserveAspectRatio="none">
-        {values.map((v, i) => {
-          const h = (v / max) * (height - 4);
-          return (
-            <Rect
-              key={i}
-              x={i * 20 + gap / 2}
-              y={height - h}
-              width={20 - gap}
-              height={Math.max(h, v > 0 ? 2 : 0)}
-              rx={2}
-              fill={v >= goal ? colors.success : colors.primary}
-            />
-          );
-        })}
-        <Line
-          x1={0}
-          x2={values.length * 20}
-          y1={height - (goal / max) * (height - 4)}
-          y2={height - (goal / max) * (height - 4)}
-          stroke={colors.textMuted}
-          strokeDasharray="4 4"
-          strokeWidth={1}
-        />
-      </Svg>
+    <View style={{ gap: 4 }}>
+      <View style={{ height }}>
+        <Svg width="100%" height={height} viewBox={`0 0 ${values.length * 20} ${height}`} preserveAspectRatio="none">
+          {values.map((v, i) => {
+            const h = (v / max) * (height - 4);
+            return (
+              <Rect
+                key={i}
+                x={i * 20 + gap / 2}
+                y={height - h}
+                width={20 - gap}
+                height={Math.max(h, v > 0 ? 2 : 0)}
+                rx={2}
+                fill={v >= goal ? colors.success : colors.primary}
+              />
+            );
+          })}
+          <Line
+            x1={0}
+            x2={values.length * 20}
+            y1={height - (goal / max) * (height - 4)}
+            y2={height - (goal / max) * (height - 4)}
+            stroke={colors.textMuted}
+            strokeDasharray="4 4"
+            strokeWidth={1}
+          />
+        </Svg>
+      </View>
+      <View style={styles.barLabels}>
+        {values.map((v, i) => (
+          <Text
+            key={i}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={[styles.barLabel, { fontSize: dense ? 9 : 13, color: v >= goal ? colors.success : colors.text }]}
+          >
+            {v > 0 ? v : ''}
+          </Text>
+        ))}
+      </View>
+      {labels && (
+        <View style={styles.barLabels}>
+          {labels.map((l, i) => (
+            <Text key={i} numberOfLines={1} style={[styles.barLabel, { fontSize: 11, color: colors.textMuted }]}>
+              {l}
+            </Text>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -96,4 +133,6 @@ const styles = StyleSheet.create({
   meterHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   track: { height: 8, borderRadius: 4, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 4 },
+  barLabels: { flexDirection: 'row' },
+  barLabel: { flex: 1, textAlign: 'center', fontWeight: '700', fontVariant: ['tabular-nums'] },
 });

@@ -29,6 +29,8 @@ async function loadDashboard() {
   return { counts, byDifficulty, byTopic, totalEvents, next, usedMs: AppBlocker?.getUsedMs() ?? 0 };
 }
 
+const WEEKDAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
 const formatLeft = (left: number | null) => (left == null ? 'без ограничений' : `${left} мин.`);
 
 export default function DashboardScreen() {
@@ -45,7 +47,9 @@ export default function DashboardScreen() {
   const streak = computeStreak(data.counts, goal);
   const learned = data.byDifficulty.reduce((s, d) => s + d.learned, 0);
   const total = data.byDifficulty.reduce((s, d) => s + d.total, 0);
-  const chart = lastDays(range).map((d) => data.counts[d] ?? 0);
+  const days = lastDays(range);
+  const chart = days.map((d) => data.counts[d] ?? 0);
+  const weekdays = days.map((d) => WEEKDAYS[new Date(`${d}T00:00:00`).getDay()]);
   const card = [styles.card, { backgroundColor: colors.surface, borderColor: colors.border }];
 
   return (
@@ -101,24 +105,6 @@ export default function DashboardScreen() {
       )}
 
       <View style={card}>
-        <View style={styles.cardHead}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Активность</Text>
-          <View style={styles.segment}>
-            {([7, 30] as const).map((r) => (
-              <Pressable
-                key={r}
-                onPress={() => setRange(r)}
-                style={[styles.segmentItem, range === r && { backgroundColor: colors.surfaceAlt }]}
-              >
-                <Text style={{ color: range === r ? colors.text : colors.textMuted, fontWeight: '600' }}>{r} дн.</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        <DailyBars values={chart} goal={goal} />
-      </View>
-
-      <View style={card}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>По сложности</Text>
         {DIFFICULTIES.map((d) => {
           const stat = data.byDifficulty.find((s) => s.difficulty === d);
@@ -134,6 +120,24 @@ export default function DashboardScreen() {
         })}
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <Meter label="Всего" value={learned} total={total} color={colors.primary} />
+      </View>
+
+      <View style={card}>
+        <View style={styles.cardHead}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Активность</Text>
+          <View style={styles.segment}>
+            {([7, 30] as const).map((r) => (
+              <Pressable
+                key={r}
+                onPress={() => setRange(r)}
+                style={[styles.segmentItem, range === r && { backgroundColor: colors.surfaceAlt }]}
+              >
+                <Text style={{ color: range === r ? colors.text : colors.textMuted, fontWeight: '600' }}>{r} дн.</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+        <DailyBars values={chart} goal={goal} labels={range === 7 ? weekdays : undefined} />
       </View>
 
       {data.byTopic.length > 0 && (

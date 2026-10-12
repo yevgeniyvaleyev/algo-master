@@ -17,6 +17,8 @@ export interface Settings {
   reminderStartHour: number;
   reminderEndHour: number;
   reminderIntervalHours: number;
+  /** Manual collapse state per topic id on the list screen; topics without an entry collapse once fully learned. */
+  collapsedTopics: Record<string, boolean>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -31,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderStartHour: 9,
   reminderEndHour: 21,
   reminderIntervalHours: 1,
+  collapsedTopics: {},
 };
 
 const KV_KEY = 'settings';
