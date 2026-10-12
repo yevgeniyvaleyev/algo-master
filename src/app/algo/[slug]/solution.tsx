@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CodeViewer } from '@/components/CodeViewer';
 import { Placeholder } from '@/components/Placeholder';
@@ -25,6 +25,8 @@ export default function SolutionTab() {
   const code = showing === 'custom' ? custom : content?.solutionTs;
 
   const openEditor = () => router.push({ pathname: '/solution-editor/[slug]', params: { slug } });
+  // Algorithm slugs are LeetCode slugs; the link opens the LeetCode app if installed, otherwise the browser.
+  const openSubmissions = () => Linking.openURL(`https://leetcode.com/problems/${slug}/submissions/`);
   const reset = () =>
     Alert.alert('Удалить своё решение?', 'Останется эталонное решение.', [
       { text: 'Отмена', style: 'cancel' },
@@ -61,6 +63,9 @@ export default function SolutionTab() {
               <Ionicons name="trash-outline" size={20} color={colors.danger} />
             </Pressable>
           )}
+          <Pressable hitSlop={8} onPress={openSubmissions} accessibilityLabel="Мои отправки на LeetCode">
+            <Ionicons name="open-outline" size={20} color={colors.primary} />
+          </Pressable>
           <Pressable hitSlop={8} onPress={openEditor} style={styles.edit}>
             <Ionicons name={hasCustom ? 'create-outline' : 'add-circle-outline'} size={20} color={colors.primary} />
             <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 13 }}>

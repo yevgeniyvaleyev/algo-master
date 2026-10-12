@@ -53,6 +53,7 @@
     "scrape": "node scripts/scrape/scrape.mjs",
     "content:sync": "node scripts/content/sync.mjs",
     "content:validate": "node scripts/content/validate.mjs",
+    "icons": "node scripts/icons/generate.mjs",
     "content:images": "node scripts/content/images.mjs"
   },
   "private": true,

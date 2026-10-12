@@ -23,6 +23,7 @@ npm run android               # expo run:android — native dev build (needs JDK
 npm run scrape                # LeetCode GraphQL -> scripts/out/{plan.json,problems/*.json} (resumable, --force to refetch)
 npm run content:sync          # scraped data -> data/algos/*.json, data/manifest.json, data/content-index.ts
 npm run content:validate      # zod schema + Russian text checks + tsc on every solutionTs
+npm run icons                 # regenerate app/adaptive/notification icons in assets/ (scripts/icons/generate.mjs)
 npm run content:images        # download content images -> data/images + data/image-index.ts (offline; MarkdownView uses them)
 node scripts/content/apply.mjs scripts/content/generated/<batch>.mjs  # run a batch's tests, merge passing content into data/
 ```
