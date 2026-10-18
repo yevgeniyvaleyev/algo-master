@@ -39,7 +39,7 @@ const MONTHS = [
   'декабря',
 ];
 
-/** Groups history rows by day for the given day keys (in that order), keeping days with nothing done. */
+/** Groups history rows by day for the given day keys (in that order), newest entry first, keeping empty days. */
 export function groupHistory(rows: readonly HistoryEntry[], dayKeys: readonly string[]): HistoryDay[] {
   const byDay = new Map<string, HistoryEntry[]>();
   for (const r of rows) {
@@ -49,7 +49,7 @@ export function groupHistory(rows: readonly HistoryEntry[], dayKeys: readonly st
   }
   return dayKeys.map((day) => {
     const [y, m, d] = day.split('-').map(Number);
-    const items = [...(byDay.get(day) ?? [])].sort((a, b) => a.ts - b.ts);
+    const items = [...(byDay.get(day) ?? [])].sort((a, b) => b.ts - a.ts);
     const count = (kind: HistoryEntry['kind']) => items.filter((i) => i.kind === kind).length;
     return { day, date: new Date(y, m - 1, d), items, learned: count('learned'), refreshed: count('refreshed') };
   });

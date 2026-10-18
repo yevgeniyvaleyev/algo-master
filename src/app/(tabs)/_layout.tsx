@@ -5,13 +5,22 @@ import { getCardDeck } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
 import { dueCount } from '@/logic/leitner';
 import { useSettings } from '@/store/settings';
+import { useColors } from '@/theme';
 
 export default function TabsLayout() {
   const deck = useQuery(getCardDeck);
   const capacity = useSettings((s) => s.cardBoxOneSize);
   const due = deck ? dueCount(deck, capacity) : 0;
+  const colors = useColors();
   return (
-    <Tabs>
+    <Tabs
+      screenOptions={{
+        // Explicit theme colors, so the bar (and the system nav bar area under it) follows the in-app theme.
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{

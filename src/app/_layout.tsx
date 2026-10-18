@@ -1,5 +1,7 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { NavigationBar } from 'expo-navigation-bar';
 import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -43,6 +45,11 @@ export default function RootLayout() {
     };
   }, []);
 
+  // The window background shows behind the transparent system bars (edge-to-edge) and during transitions.
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(colors.background);
+  }, [colors.background]);
+
   const navTheme = useMemo(() => {
     const base = isDark ? DarkTheme : DefaultTheme;
     return {
@@ -70,6 +77,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={navTheme}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
+        {/* Explicit, not 'auto': the in-app theme override must win over the system scheme. */}
+        <NavigationBar style={isDark ? 'dark' : 'light'} />
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="algo/[slug]" options={{ title: '' }} />

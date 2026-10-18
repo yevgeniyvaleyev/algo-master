@@ -289,7 +289,7 @@ export async function getHistory(days: number, today: Date = new Date()): Promis
            UNION ALL SELECT 'refreshed', slug, day, ts FROM card_log WHERE day >= ?) l
      JOIN algos a ON a.slug = l.slug
      GROUP BY l.kind, l.day, l.slug
-     ORDER BY l.day DESC, ts`,
+     ORDER BY l.day DESC, ts DESC`,
     since,
     since,
   );

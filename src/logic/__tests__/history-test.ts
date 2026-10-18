@@ -13,14 +13,14 @@ const entry = (day: string, slug: string, ts: number, kind: HistoryEntry['kind']
 });
 
 describe('groupHistory', () => {
-  it('groups by day newest first, keeps empty days and sorts by learn time', () => {
+  it('groups by day newest first, keeps empty days and puts the latest entry on top', () => {
     const days = lastDays(3, today).reverse();
     const groups = groupHistory(
       [entry('2026-10-14', 'b', 20), entry('2026-10-14', 'a', 10), entry('2026-10-12', 'c', 5)],
       days,
     );
     expect(groups.map((g) => g.day)).toEqual(['2026-10-14', '2026-10-13', '2026-10-12']);
-    expect(groups.map((g) => g.items.map((i) => i.slug))).toEqual([['a', 'b'], [], ['c']]);
+    expect(groups.map((g) => g.items.map((i) => i.slug))).toEqual([['b', 'a'], [], ['c']]);
     expect(groups[0].date).toEqual(new Date(2026, 9, 14));
   });
 
@@ -33,7 +33,7 @@ describe('groupHistory', () => {
       ],
       ['2026-10-14'],
     );
-    expect(day.items.map((i) => `${i.kind}:${i.slug}`)).toEqual(['learned:a', 'refreshed:b', 'refreshed:a']);
+    expect(day.items.map((i) => `${i.kind}:${i.slug}`)).toEqual(['refreshed:a', 'refreshed:b', 'learned:a']);
     expect([day.learned, day.refreshed]).toEqual([1, 2]);
   });
 

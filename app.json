@@ -32,7 +32,13 @@
           "icon": "./assets/notification-icon.png"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false
+        }
+      ]
     ],
     "scheme": "algomaster",
     "experiments": {
