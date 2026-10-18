@@ -13,13 +13,26 @@ const MONO = Platform.select({ android: 'monospace', ios: 'Menlo', default: 'mon
 
 const clamp = (v: number) => Math.min(MAX_FONT, Math.max(MIN_FONT, v));
 
-/** Read-only VS Code–style code view with syntax highlighting and pinch / button zoom. */
-export function CodeViewer({ code, language = 'typescript' }: { code: string; language?: string }) {
+const COMPACT_FONT = 11;
+
+/**
+ * Read-only VS Code–style code view with syntax highlighting and pinch / button zoom.
+ * `compact` (flash cards): small font, no toolbar, pinch zoom not saved.
+ */
+export function CodeViewer({
+  code,
+  language = 'typescript',
+  compact = false,
+}: {
+  code: string;
+  language?: string;
+  compact?: boolean;
+}) {
   const colors = useColors();
   const isDark = useIsDark();
   const savedSize = useSettings((s) => s.codeFontSize);
   const update = useSettings((s) => s.update);
-  const [fontSize, setFontSize] = useState(savedSize);
+  const [fontSize, setFontSize] = useState(compact ? COMPACT_FONT : savedSize);
   const [pinchStart, setPinchStart] = useState(fontSize);
 
   const commit = (size: number) => {
@@ -35,27 +48,31 @@ export function CodeViewer({ code, language = 'typescript' }: { code: string; la
       const next = clamp(Math.round(pinchStart * e.scale * 2) / 2);
       if (next !== fontSize) setFontSize(next);
     })
-    .onEnd(() => update({ codeFontSize: fontSize }));
+    .onEnd(() => {
+      if (!compact) update({ codeFontSize: fontSize });
+    });
 
   const lineHeight = Math.round(fontSize * 1.5);
   const theme = isDark ? themes.vsDark : themes.vsLight;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.editor.background }]}>
-      <View style={[styles.toolbar, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}>
-        <Text style={[styles.lang, { color: colors.textMuted }]}>
-          {language === 'typescript' ? 'TypeScript' : language}
-        </Text>
-        <View style={styles.zoom}>
-          <Pressable hitSlop={8} onPress={() => commit(clamp(fontSize - 1))}>
-            <Ionicons name="remove-circle-outline" size={24} color={colors.text} />
-          </Pressable>
-          <Text style={[styles.zoomValue, { color: colors.textMuted }]}>{fontSize}</Text>
-          <Pressable hitSlop={8} onPress={() => commit(clamp(fontSize + 1))}>
-            <Ionicons name="add-circle-outline" size={24} color={colors.text} />
-          </Pressable>
+      {!compact && (
+        <View style={[styles.toolbar, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}>
+          <Text style={[styles.lang, { color: colors.textMuted }]}>
+            {language === 'typescript' ? 'TypeScript' : language}
+          </Text>
+          <View style={styles.zoom}>
+            <Pressable hitSlop={8} onPress={() => commit(clamp(fontSize - 1))}>
+              <Ionicons name="remove-circle-outline" size={24} color={colors.text} />
+            </Pressable>
+            <Text style={[styles.zoomValue, { color: colors.textMuted }]}>{fontSize}</Text>
+            <Pressable hitSlop={8} onPress={() => commit(clamp(fontSize + 1))}>
+              <Ionicons name="add-circle-outline" size={24} color={colors.text} />
+            </Pressable>
+          </View>
         </View>
-      </View>
+      )}
       <GestureDetector gesture={pinch}>
         <ScrollView style={styles.flex} contentContainerStyle={styles.vertical}>
           <Highlight code={code.trimEnd()} language={language} theme={theme}>

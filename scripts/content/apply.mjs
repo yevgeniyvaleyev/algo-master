@@ -46,6 +46,7 @@ const ALGO_KEYS = [
   'descriptionRuMd',
   'solutionTs',
   'ideaRuMd',
+  'explanationRuMd',
   'theory',
 ];
 
@@ -87,13 +88,22 @@ globalThis.__convertOut = (type, v) => type === 'list' ? __fromList(v) : type ==
 `;
 
 const canonical = (v) =>
-  Array.isArray(v) ? v.map(canonical).map((x) => JSON.stringify(x)).sort() : v;
+  Array.isArray(v)
+    ? v
+        .map(canonical)
+        .map((x) => JSON.stringify(x))
+        .sort()
+    : v;
 
 function runTests(slug, { solutionTs, fn, cls, prelude = '', harness, tests = [] }) {
   if ((!fn && !cls && !harness) || tests.length === 0) throw new Error(`${slug}: no tests`);
   const js = ts.transpileModule(solutionTs, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const context = vm.createContext({ console });
-  const entry = harness ? `${harness}\n;globalThis.__fn = __run;` : cls ? `globalThis.__cls = ${cls};` : `globalThis.__fn = ${fn};`;
+  const entry = harness
+    ? `${harness}\n;globalThis.__fn = __run;`
+    : cls
+      ? `globalThis.__cls = ${cls};`
+      : `globalThis.__fn = ${fn};`;
   vm.runInContext(`${PRELUDE_JS}\n${prelude}\n${js}\n;${entry}`, context, { timeout: 2000 });
   const solve = cls
     ? (ops, opArgs) => {

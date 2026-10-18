@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { Difficulty } from '@/content/types';
@@ -30,6 +31,7 @@ function hourMarks(start: number, end: number): { at: number; edge: boolean }[] 
 
 const MARK_LABEL_WIDTH = 40;
 const NOW_LABEL_WIDTH = 110;
+const BELL_SIZE = 13;
 
 const minutes = (ms: number) => `${Math.round(ms / 60_000)} мин.`;
 
@@ -37,9 +39,21 @@ const minutes = (ms: number) => `${Math.round(ms / 60_000)} мин.`;
  * Horizontal timeline of the learning day: the past with today's learned algorithms as ticks, a "now" marker, and
  * ahead of it the entertainment available now, free time, and the remaining algorithms packed against the deadline.
  */
-export function DayTimeline({ timeline }: { timeline: Timeline }) {
+export function DayTimeline({
+  timeline,
+  nextTitle,
+  alarms,
+}: {
+  timeline: Timeline;
+  /** Title of the next planned algorithm. */
+  nextTitle?: string;
+  /** Study alarms are active (an installed build with alarms enabled). */
+  alarms: boolean;
+}) {
   const colors = useColors();
-  const { start, end, now, segments, ticks, latestStart, shortageMs, ended } = timeline;
+  const { start, end, now, segments, ticks, latestStart, shortageMs, ended, plan, nextAlarm } = timeline;
+  // Where each planned block's alarm rings (the first one keeps the minimum gap from now).
+  const bells = plan.map((b, i) => (i === 0 && nextAlarm != null ? nextAlarm : b.start)).filter((t) => t < end);
   const span = Math.max(1, end - start);
   const pct = (t: number) => `${((t - start) / span) * 100}%` as const;
   const width = (s: { start: number; end: number }) => `${((s.end - s.start) / span) * 100}%` as const;
@@ -132,6 +146,20 @@ export function DayTimeline({ timeline }: { timeline: Timeline }) {
         {now > start && now < end && <View style={[styles.now, { left: pct(now), backgroundColor: colors.text }]} />}
       </View>
 
+      {bells.length > 0 && (
+        <View style={styles.bells}>
+          {bells.map((t, i) => (
+            <Ionicons
+              key={i}
+              name={alarms ? 'alarm' : 'alarm-outline'}
+              size={BELL_SIZE}
+              color={i === 0 ? colors.text : colors.textMuted}
+              style={[styles.bell, { left: pct(t) }]}
+            />
+          ))}
+        </View>
+      )}
+
       <View style={styles.axis}>
         {marks.map((m) => {
           const r = (m.at - start) / span;
@@ -160,6 +188,15 @@ export function DayTimeline({ timeline }: { timeline: Timeline }) {
       </View>
 
       <Text style={[styles.status, { color: status.color }]}>{status.text}</Text>
+      {!ended && nextAlarm != null && (
+        <View style={styles.nextRow}>
+          <Ionicons name={alarms ? 'alarm' : 'alarm-outline'} size={16} color={colors.primary} />
+          <Text style={{ color: colors.text, flex: 1 }} numberOfLines={1}>
+            {alarms ? 'Будильник' : 'По плану'} в {hhmm(nextAlarm)}
+            {nextTitle ? ` — ${nextTitle}` : ''}
+          </Text>
+        </View>
+      )}
 
       {totals.size > 0 && (
         <View style={styles.legend}>
@@ -189,6 +226,9 @@ const styles = StyleSheet.create({
   edgeLabel: { fontWeight: '700' },
   grid: { position: 'absolute', top: 0, bottom: 0, width: 1, opacity: 0.6 },
   nowLabel: { position: 'absolute', fontWeight: '700' },
+  bells: { height: BELL_SIZE },
+  bell: { position: 'absolute', marginLeft: -BELL_SIZE / 2 },
+  nextRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   status: { fontSize: 14, fontWeight: '600' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },

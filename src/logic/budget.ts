@@ -1,5 +1,7 @@
 import type { Difficulty } from '@/content/types';
 
+import { nextAlarmAt, planDay, type PlannedBlock } from './study-plan';
+
 /**
  * Adaptive entertainment budget. The learning day runs from `startHour` to `endHour` (the deadline for the daily
  * goal). Each algorithm still ahead reserves its estimated learning time (base × difficulty factor); whatever is left
@@ -99,12 +101,16 @@ export interface DayTimeline {
   shortageMs: number;
   /** The deadline has passed and the goal isn't met. */
   ended: boolean;
+  /** Evenly spread plan for the remaining algorithms (see study-plan.ts), in suggestion order. */
+  plan: (PlannedBlock & { difficulty: Difficulty })[];
+  /** When the next study alarm rings; null when nothing is planned. */
+  nextAlarm: number | null;
 }
 
 /**
- * Lays out the learning day: the past, then (as a "latest safe" schedule) the entertainment available now, free
- * slack, and the remaining algorithms packed against the deadline. If they don't fit, they're squeezed into the
- * time left and `shortageMs` says by how much.
+ * Lays out the learning day: the past, then the remaining algorithms where the study plan puts them (evenly spread,
+ * see planDay), the entertainment available now before the first one, and free time in the gaps. Blocks that run
+ * past the deadline are cut off there; `shortageMs` says how much learning time doesn't fit.
  */
 export function dayTimeline(input: {
   now: number;
@@ -124,31 +130,54 @@ export function dayTimeline(input: {
 
   if (left <= 0) {
     if (now < end) segments.push({ kind: 'unlimited', start: now, end });
-    return { start, end, now, segments, ticks, latestStart: null, shortageMs: 0, ended: false };
+    return {
+      start,
+      end,
+      now,
+      segments,
+      ticks,
+      latestStart: null,
+      shortageMs: 0,
+      ended: false,
+      plan: [],
+      nextAlarm: null,
+    };
   }
 
   const ahead = upcoming.slice(0, left);
   const reserve = reserveMs(left, upcoming);
-  const remaining = Math.max(0, end - now);
   const ended = input.now >= end;
-  const shortageMs = ended ? 0 : Math.max(0, reserve - remaining);
+  const shortageMs = ended ? 0 : Math.max(0, reserve - Math.max(0, end - now));
   const latestStart = end - reserve;
+  const plan = planDay({ now: input.now, start, deadline: end, items: ahead }).map((b, i) => ({
+    ...b,
+    difficulty: ahead[i].difficulty,
+  }));
 
   if (!ended) {
-    // Squeeze the blocks proportionally when they don't fit.
-    const scale = reserve > remaining && reserve > 0 ? remaining / reserve : 1;
-    const blocksStart = end - reserve * scale;
-    const fun = Math.min(available ?? 0, blocksStart - now);
-    if (fun > 0) segments.push({ kind: 'fun', start: now, end: now + fun });
-    if (blocksStart > now + Math.max(0, fun))
-      segments.push({ kind: 'free', start: now + Math.max(0, fun), end: blocksStart });
-    let t = blocksStart;
-    for (const a of ahead) {
-      const w = a.costMs * scale;
-      segments.push({ kind: 'algo', start: t, end: t + w, difficulty: a.difficulty });
-      t += w;
+    const blocks = plan.filter((b) => b.start < end).map((b) => ({ ...b, end: Math.min(end, b.end) }));
+    const firstStart = blocks[0]?.start ?? end;
+    const funEnd = Math.min(now + Math.max(0, available ?? 0), firstStart);
+    if (funEnd > now) segments.push({ kind: 'fun', start: now, end: funEnd });
+    let t = funEnd > now ? funEnd : now;
+    for (const b of blocks) {
+      if (b.start > t) segments.push({ kind: 'free', start: t, end: b.start });
+      segments.push({ kind: 'algo', start: b.start, end: b.end, difficulty: b.difficulty });
+      t = b.end;
     }
+    if (t < end) segments.push({ kind: 'free', start: t, end });
   }
 
-  return { start, end, now, segments, ticks, latestStart, shortageMs, ended };
+  return {
+    start,
+    end,
+    now,
+    segments,
+    ticks,
+    latestStart,
+    shortageMs,
+    ended,
+    plan,
+    nextAlarm: nextAlarmAt(plan, input.now),
+  };
 }

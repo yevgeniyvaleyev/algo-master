@@ -24,6 +24,7 @@ export const setLearnedMany = mutation(async (changes: { slug: string; learned: 
   for (const c of changes) await repo.setLearned(c.slug, c.learned);
   void syncBackground();
 });
+export const saveCardWrites = mutation(repo.saveCardWrites);
 export const createTopic = mutation(repo.createTopic);
 export const renameTopic = mutation(repo.renameTopic);
 export const deleteTopic = mutation(repo.deleteTopic);

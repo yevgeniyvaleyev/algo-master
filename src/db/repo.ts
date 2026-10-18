@@ -1,5 +1,7 @@
 import type { Difficulty, Manifest } from '@/content/types';
 import { addDays, dayKey } from '@/logic/dates';
+import type { HistoryEntry } from '@/logic/history';
+import type { CardWrite, DeckCard } from '@/logic/leitner';
 import { learningOrder } from '@/logic/learning-order';
 import type { DailyCounts } from '@/logic/progress';
 import { planSeed } from '@/logic/seed';
@@ -212,6 +214,40 @@ export async function deleteCustomSolution(slug: string): Promise<void> {
   await db.runAsync('DELETE FROM custom_solutions WHERE slug = ?', slug);
 }
 
+// ---------- Flash cards ----------
+
+/** Learned algorithms with their Leitner state (box null = waiting outside the box). */
+export async function getCardDeck(): Promise<DeckCard[]> {
+  return db.getAllAsync<DeckCard>(
+    `SELECT a.slug, a.leetcode_id AS leetcodeId, a.title, a.difficulty, c.box, c.due_day AS dueDay,
+            p.learned_at AS learnedAt, c.reviewed_at AS reviewedAt
+     FROM progress p
+     JOIN algos a ON a.slug = p.slug
+     LEFT JOIN cards c ON c.slug = p.slug`,
+  );
+}
+
+/** Stores flash card moves; a ✓ answer also refreshes the learned mark (pushes back auto-unmark) and is logged. */
+export async function saveCardWrites(writes: readonly CardWrite[], now: number = Date.now()): Promise<void> {
+  if (writes.length === 0) return;
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    for (const w of writes) {
+      await tx.runAsync(
+        `INSERT INTO cards (slug, box, due_day, reviewed_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(slug) DO UPDATE SET box = excluded.box, due_day = excluded.due_day, reviewed_at = excluded.reviewed_at`,
+        w.slug,
+        w.box,
+        w.dueDay,
+        now,
+      );
+      if (w.refreshMark) {
+        await tx.runAsync('UPDATE progress SET learned_at = ? WHERE slug = ?', now, w.slug);
+        await tx.runAsync('INSERT INTO card_log (slug, day, ts) VALUES (?, ?, ?)', w.slug, dayKey(new Date(now)), now);
+      }
+    }
+  });
+}
+
 // ---------- Stats ----------
 
 export async function getDailyCounts(days: number, today: Date = new Date()): Promise<DailyCounts> {
@@ -241,6 +277,31 @@ export async function getTodayLearned(today: Date = new Date()): Promise<{ ts: n
      ORDER BY ts`,
     dayKey(today),
   );
+}
+
+/** Algorithms learned per day over the last `days` days (one row per algorithm and day), newest day first. */
+/** Algorithms learned and refreshed with flash cards per day (first time of each that day), newest days first. */
+export async function getHistory(days: number, today: Date = new Date()): Promise<HistoryEntry[]> {
+  const since = dayKey(addDays(today, -days + 1));
+  return db.getAllAsync<HistoryEntry>(
+    `SELECT l.kind, l.day, l.slug, MIN(l.ts) AS ts, a.leetcode_id AS leetcodeId, a.title, a.difficulty
+     FROM (SELECT 'learned' AS kind, slug, day, ts FROM learn_log WHERE day >= ?
+           UNION ALL SELECT 'refreshed', slug, day, ts FROM card_log WHERE day >= ?) l
+     JOIN algos a ON a.slug = l.slug
+     GROUP BY l.kind, l.day, l.slug
+     ORDER BY l.day DESC, ts`,
+    since,
+    since,
+  );
+}
+
+/** Distinct algorithms refreshed with flash cards today and ever. */
+export async function getCardRefreshStats(today: Date = new Date()): Promise<{ today: number; total: number }> {
+  const row = await db.getFirstAsync<{ today: number; total: number }>(
+    `SELECT COUNT(DISTINCT CASE WHEN day = ? THEN slug END) AS today, COUNT(DISTINCT slug) AS total FROM card_log`,
+    dayKey(today),
+  );
+  return { today: row?.today ?? 0, total: row?.total ?? 0 };
 }
 
 export interface DifficultyStat {

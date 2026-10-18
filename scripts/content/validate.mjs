@@ -38,6 +38,11 @@ const generated = z.object({
   theory: z.object({ topicKey: z.string().regex(/^[a-z0-9-]+$/), titleRu: z.string().min(1) }),
 });
 const GENERATED_KEYS = Object.keys(generated.shape);
+// Optional detailed walkthrough («Разбор»), not part of the all-or-none set above.
+const explanation = z
+  .string()
+  .min(1500, 'too short (< 1500 chars)')
+  .refine((s) => /[а-яё]/i.test(s), 'must be Russian');
 const theorySchema = z.object({
   key: z.string(),
   titleRu: z.string().min(1),
@@ -103,6 +108,7 @@ async function main() {
   const manifest = JSON.parse(await fs.readFile(path.join(DATA, 'manifest.json'), 'utf8'));
   const solutions = new Map();
   let complete = 0;
+  let explained = 0;
   for (const { slug } of manifest.algos) {
     const file = path.join(DATA, 'algos', `${slug}.json`);
     let json;
@@ -114,6 +120,11 @@ async function main() {
     }
     const b = base.safeParse(json);
     if (!b.success) errors.push(`${slug}: ${b.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    if (json.explanationRuMd !== undefined) {
+      const e = explanation.safeParse(json.explanationRuMd);
+      if (e.success) explained++;
+      else errors.push(`${slug}: explanationRuMd ${e.error.issues.map((i) => i.message).join('; ')}`);
+    }
     const present = GENERATED_KEYS.filter((k) => json[k] !== undefined);
     if (present.length === 0) continue;
     if (present.length < GENERATED_KEYS.length) {
@@ -132,7 +143,9 @@ async function main() {
 
   errors.push(...typecheck(solutions));
 
-  console.log(`algos=${manifest.algos.length} withRussianContent=${complete} theory=${theoryKeys.size}`);
+  console.log(
+    `algos=${manifest.algos.length} withRussianContent=${complete} withExplanation=${explained} theory=${theoryKeys.size}`,
+  );
   if (errors.length) {
     console.error(`\n${errors.length} problem(s):\n- ${errors.join('\n- ')}`);
     process.exit(1);

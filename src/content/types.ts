@@ -18,6 +18,8 @@ export interface AlgoContent {
   solutionTs?: string;
   /** Idea of the solution in Russian. */
   ideaRuMd?: string;
+  /** Подробный разбор решения (Russian); optional, independent of the other generated fields. */
+  explanationRuMd?: string;
   theory?: { topicKey: string; titleRu: string };
 }
 

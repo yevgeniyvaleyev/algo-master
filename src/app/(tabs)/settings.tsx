@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { AppBlocker } from '@modules/app-blocker';
+import { StudyAlarms } from '@modules/study-alarms';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import type { Difficulty } from '@/content/types';
 import { runExpiration } from '@/logic/actions';
+import { BOX_INTERVAL_DAYS, boxInterval } from '@/logic/leitner';
 import { ensureNotificationPermission, remindersSupported } from '@/notifications/reminders';
 import { useSettings, type ThemeMode } from '@/store/settings';
 import { useColors } from '@/theme';
@@ -71,21 +73,34 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 }
 
 /** Whether the accessibility service is on; re-read on focus and when returning from system settings. */
-function useServiceEnabled() {
-  const [enabled, setEnabled] = useState(() => AppBlocker?.isServiceEnabled() ?? false);
-  const refresh = useCallback(() => setEnabled(AppBlocker?.isServiceEnabled() ?? false), []);
+/** Reads a native status on focus and whenever the app returns to the foreground (e.g. from Android settings). */
+function useNativeValue<T>(read: () => T): T {
+  const [value, setValue] = useState(read);
+  const readRef = useRef(read);
+  useEffect(() => {
+    readRef.current = read;
+  });
+  const refresh = useCallback(() => setValue(readRef.current()), []);
   useFocusEffect(refresh);
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => state === 'active' && refresh());
     return () => sub.remove();
   }, [refresh]);
-  return enabled;
+  return value;
 }
+
+const formatAlarm = (at: number) => {
+  const d = new Date(at);
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return d.getDate() === new Date().getDate() ? time : `завтра ${time}`;
+};
 
 export default function SettingsScreen() {
   const colors = useColors();
   const s = useSettings();
-  const serviceEnabled = useServiceEnabled();
+  const serviceEnabled = useNativeValue(() => AppBlocker?.isServiceEnabled() ?? false);
+  const fullScreenAllowed = useNativeValue(() => StudyAlarms?.canUseFullScreenIntent() ?? true);
+  const nextAlarm = useNativeValue(() => StudyAlarms?.getNextAlarm() ?? null);
 
   const card = [styles.card, { backgroundColor: colors.surface, borderColor: colors.border }];
 
@@ -188,6 +203,37 @@ export default function SettingsScreen() {
             />
           </Row>
         )}
+        <Row label="Дней в истории" hint="Сколько последних дней показывать во вкладке «История»">
+          <Stepper
+            value={s.historyDays}
+            min={1}
+            max={90}
+            suffix=" дн."
+            onChange={(v) => s.update({ historyDays: v })}
+          />
+        </Row>
+      </View>
+
+      <Text style={[styles.section, { color: colors.textMuted }]}>Карточки</Text>
+      <View style={card}>
+        <Row label="Карточек в коробке 1" hint="Новые карточки ждут, пока в коробке 1 есть место">
+          <Stepper value={s.cardBoxOneSize} min={3} max={50} onChange={(v) => s.update({ cardBoxOneSize: v })} />
+        </Row>
+        <Row
+          label="Множитель интервалов"
+          hint={`Повтор коробок 2–5 через ${BOX_INTERVAL_DAYS.slice(1)
+            .map((_, i) => boxInterval(i + 2, s.cardIntervalFactor))
+            .join(' · ')} дн.`}
+        >
+          <Stepper
+            value={s.cardIntervalFactor}
+            min={0.5}
+            max={4}
+            step={0.25}
+            format={(v) => `×${v}`}
+            onChange={(v) => s.update({ cardIntervalFactor: v })}
+          />
+        </Row>
       </View>
 
       <Text style={[styles.section, { color: colors.textMuted }]}>Напоминания</Text>
@@ -226,6 +272,65 @@ export default function SettingsScreen() {
                 suffix=" ч."
                 onChange={(v) => s.update({ reminderIntervalHours: v })}
               />
+            </Row>
+          </>
+        )}
+      </View>
+
+      <Text style={[styles.section, { color: colors.textMuted }]}>Будильники</Text>
+      <View style={card}>
+        <Row
+          label="Будильник для каждого алгоритма"
+          hint={
+            StudyAlarms
+              ? 'Дневная цель распределяется равномерно по учебному дню; будильник звонит в начале каждого алгоритма. Пропущенный — план пересчитывается'
+              : 'Недоступно в Expo Go — работает в установленном приложении (APK)'
+          }
+        >
+          <Switch
+            disabled={!StudyAlarms}
+            value={StudyAlarms != null && s.alarmsEnabled}
+            onValueChange={async (v) => {
+              if (v && !(await ensureNotificationPermission())) {
+                Alert.alert('Нет разрешения', 'Разрешите уведомления для AlgoMaster в настройках Android.', [
+                  { text: 'Отмена', style: 'cancel' },
+                  { text: 'Открыть настройки', onPress: () => Linking.openSettings() },
+                ]);
+                return;
+              }
+              s.update({ alarmsEnabled: v });
+            }}
+            trackColor={{ true: colors.primary }}
+          />
+        </Row>
+        {StudyAlarms && s.alarmsEnabled && (
+          <>
+            <Row
+              label="Следующий будильник"
+              hint={nextAlarm ? `${formatAlarm(nextAlarm.at)} — ${nextAlarm.title}` : 'Не запланирован: цель выполнена'}
+            >
+              <Ionicons name="alarm" size={22} color={nextAlarm ? colors.primary : colors.border} />
+            </Row>
+            {!fullScreenAllowed && (
+              <Row
+                label="Полноэкранный будильник"
+                hint="Запрещён — будильник придёт как уведомление. Разрешите «Полноэкранные уведомления»"
+              >
+                <Pressable
+                  onPress={() => StudyAlarms?.openFullScreenIntentSettings()}
+                  style={[styles.button, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Разрешить</Text>
+                </Pressable>
+              </Row>
+            )}
+            <Row label="Проверить" hint="Будильник зазвонит через 5 секунд — можно заблокировать экран">
+              <Pressable
+                onPress={() => StudyAlarms?.testAlarm()}
+                style={[styles.button, { borderColor: colors.border, borderWidth: 1 }]}
+              >
+                <Text style={{ color: colors.text, fontWeight: '600' }}>Проверить</Text>
+              </Pressable>
             </Row>
           </>
         )}

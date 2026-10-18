@@ -28,6 +28,10 @@ Architecture and commands are in [`CLAUDE.md`](../CLAUDE.md).
 - All 87 problem images are bundled for offline use (`content:images`).
 
 **Extras**
+- Study alarms: the day's remaining algorithms are spread evenly over the learning day (each centred in its own interval); a full-screen alarm with sound and vibration rings at the start of each, and the plan is recalculated after every learned or ignored one.
+- Flash cards tab: Leitner review of learned algorithms — new cards wait until box 1 (10 cards, rotating until ✓) has room, boxes 2–5 come back after 3/7/14/30 days × a settings multiplier; original condition on the front, highlighted solution on the back (flip button between ✕ and ✓); «знаю» also refreshes the learned mark; ‹ › arrows browse the queue in a circle. The dashboard's «Карточки» card shows refreshed today / ever, cards to review now and the waiting/box 1–5 counts.
+- «Разбор» tab: a detailed Russian walkthrough of the solution (techniques, code block by block, trace, correctness, edge cases, mistakes); written for all 150 algorithms (`scripts/content/explanations/<batch>/<slug>.md`). Highlighted TypeScript in all markdown tabs.
+- History tab: algorithms learned (🎓) and refreshed with flash cards (🗂) per day (date + weekday) for the last N days (setting «Дней в истории», default 7; display only, the log is kept).
 - Forecast: when everything will be learned, by the daily goal and by the recent pace, counting refreshes caused by auto-unmark.
 - Suggestions: topics take turns, each giving its easiest unlearned algorithm, starting after the most recently learned topic.
 - Reminders: local notifications every N hours within a time window while the daily goal isn't met, planned 7 days ahead. They need an installed build, not Expo Go.

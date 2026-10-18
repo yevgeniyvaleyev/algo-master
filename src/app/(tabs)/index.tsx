@@ -1,19 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
 import { AppBlocker } from '@modules/app-blocker';
+import { StudyAlarms } from '@modules/study-alarms';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DailyBars, Meter, ProgressRing, StackedMeter } from '@/components/charts';
+import { CardBoxes } from '@/components/CardBoxes';
 import { DayTimeline } from '@/components/DayTimeline';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { displayTitle } from '@/content/format';
 import type { Difficulty } from '@/content/types';
-import { getDailyCounts, getDifficultyStats, getLearnedTimes, getTopicStats, getTotalLearnEvents } from '@/db/repo';
+import {
+  getCardDeck,
+  getCardRefreshStats,
+  getDailyCounts,
+  getDifficultyStats,
+  getLearnedTimes,
+  getTopicStats,
+  getTotalLearnEvents,
+} from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
 import { dayKey, lastDays } from '@/logic/dates';
 import { availableMs, dayTimeline } from '@/logic/budget';
 import { loadDayBudget } from '@/logic/day-budget';
+import { boxCounts, dueCount } from '@/logic/leitner';
 import { forecastFinish, recentPace, sustainable } from '@/logic/forecast';
 import { computeStreak } from '@/logic/progress';
 import { useSettings } from '@/store/settings';
@@ -23,16 +34,28 @@ const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 async function loadDashboard() {
-  const [counts, byDifficulty, byTopic, totalEvents, budget, learnedTimes] = await Promise.all([
+  const [counts, byDifficulty, byTopic, totalEvents, budget, learnedTimes, cardRefresh, deck] = await Promise.all([
     getDailyCounts(366),
     getDifficultyStats(),
     getTopicStats(),
     getTotalLearnEvents(),
     loadDayBudget(),
     getLearnedTimes(),
+    getCardRefreshStats(),
+    getCardDeck(),
   ]);
   // Expo Go has no blocker, so nothing has been used there.
-  return { counts, byDifficulty, byTopic, totalEvents, budget, learnedTimes, usedMs: AppBlocker?.getUsedMs() ?? 0 };
+  return {
+    counts,
+    byDifficulty,
+    byTopic,
+    totalEvents,
+    budget,
+    learnedTimes,
+    cardRefresh,
+    deck,
+    usedMs: AppBlocker?.getUsedMs() ?? 0,
+  };
 }
 
 const MONTHS = [
@@ -60,6 +83,17 @@ const formatPace = (v: number) => (Math.round(v * 10) / 10).toString().replace('
 
 const WEEKDAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
+/** A big number with a caption. */
+function StatTile({ label, value, color }: { label: string; value: number; color: string }) {
+  const colors = useColors();
+  return (
+    <View style={styles.tile}>
+      <Text style={[styles.tileValue, { color }]}>{value}</Text>
+      <Text style={[styles.tileLabel, { color: colors.textMuted }]}>{label}</Text>
+    </View>
+  );
+}
+
 const formatLeft = (left: number | null) => (left == null ? 'без ограничений' : `${Math.floor(left / 60_000)} мин.`);
 
 /** Current time, refreshed every minute (moves the "now" marker and the live cap). */
@@ -78,6 +112,8 @@ export default function DashboardScreen() {
   const autoUnmark = useSettings((s) => s.autoUnmark);
   const expireDays = useSettings((s) => s.expireDays);
   const blocking = useSettings((s) => s.blockedPackages.length > 0) && AppBlocker != null;
+  const alarms = useSettings((s) => s.alarmsEnabled) && StudyAlarms != null;
+  const boxOneSize = useSettings((s) => s.cardBoxOneSize);
   // The budget reads these settings, so reload when any of them changes.
   const budgetKey = useSettings((s) =>
     JSON.stringify([
@@ -159,7 +195,7 @@ export default function DashboardScreen() {
       {b.start < b.deadline && (
         <View style={card}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Учебный день</Text>
-          <DayTimeline timeline={timeline} />
+          <DayTimeline timeline={timeline} alarms={alarms} nextTitle={b.next[0] && displayTitle(b.next[0])} />
         </View>
       )}
 
@@ -223,6 +259,21 @@ export default function DashboardScreen() {
           </View>
         )}
       </View>
+
+      {data.deck.length > 0 && (
+        <Pressable onPress={() => router.navigate('/cards')} style={card}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.cardTitle, { color: colors.text, flex: 1 }]}>Карточки</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </View>
+          <View style={styles.tiles}>
+            <StatTile label="Повторено сегодня" value={data.cardRefresh.today} color={colors.success} />
+            <StatTile label="Повторено всего" value={data.cardRefresh.total} color={colors.primary} />
+            <StatTile label="К повтору" value={dueCount(data.deck, boxOneSize)} color={colors.difficulty.medium} />
+          </View>
+          <CardBoxes {...boxCounts(data.deck)} wide />
+        </Pressable>
+      )}
 
       <View style={card}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>По сложности</Text>
@@ -292,6 +343,11 @@ const styles = StyleSheet.create({
   todayInfo: { flex: 1, gap: 8 },
   todayTitle: { fontSize: 17, fontWeight: '700' },
   statRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  titleRow: { flexDirection: 'row', alignItems: 'center' },
+  tiles: { flexDirection: 'row', gap: 8 },
+  tile: { flex: 1, alignItems: 'center', gap: 2 },
+  tileValue: { fontSize: 24, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  tileLabel: { fontSize: 12, textAlign: 'center' },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { fontSize: 16, fontWeight: '700' },
   segment: { flexDirection: 'row', gap: 4 },

@@ -13,7 +13,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const DATA = path.join(ROOT, 'data');
 const IMAGES = path.join(DATA, 'images');
 const IMAGE_RE = /!\[[^\]]*\]\(([^)\s]+)[^)]*\)/g;
-const FIELDS = ['conditionMd', 'descriptionRuMd', 'ideaRuMd'];
+const FIELDS = ['conditionMd', 'descriptionRuMd', 'ideaRuMd', 'explanationRuMd'];
 
 /** Stable, readable local name: <basename>-<short hash of the URL>.<ext> */
 function localName(url) {

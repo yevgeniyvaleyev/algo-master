@@ -7,7 +7,7 @@ export const db = (cache.__algomasterDb ??= SQLite.openDatabaseSync('algomaster.
 
 export const UNCATEGORIZED_KEY = '__uncategorized__';
 
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 5;
 
 export async function migrate(): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -73,6 +73,37 @@ CREATE TABLE custom_solutions (
     await db.execAsync('ALTER TABLE algos ADD COLUMN leetcode_id INTEGER');
     await db.runAsync("DELETE FROM kv WHERE key = 'seedVersion'");
     version = 3;
+  }
+
+  if (version === 3) {
+    // Leitner flash cards: one row per algorithm after its first answer.
+    await db.execAsync(`
+CREATE TABLE cards (
+  slug TEXT PRIMARY KEY NOT NULL,
+  box INTEGER NOT NULL,
+  due_day TEXT NOT NULL,
+  reviewed_at INTEGER
+);
+`);
+    version = 4;
+  }
+
+  if (version === 4) {
+    // Flash card refreshes (✓ answers) for the history and the dashboard. A card in box 2–5 got there by a ✓, so its
+    // last review time is one; earlier ones are unknown.
+    await db.execAsync(`
+CREATE TABLE card_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL,
+  day TEXT NOT NULL,
+  ts INTEGER NOT NULL
+);
+CREATE INDEX card_log_day ON card_log(day);
+INSERT INTO card_log (slug, day, ts)
+  SELECT slug, date(reviewed_at / 1000, 'unixepoch', 'localtime'), reviewed_at
+  FROM cards WHERE box >= 2 AND reviewed_at IS NOT NULL;
+`);
+    version = 5;
   }
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);

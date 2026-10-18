@@ -31,6 +31,7 @@ const ALGO_KEYS = [
   'descriptionRuMd',
   'solutionTs',
   'ideaRuMd',
+  'explanationRuMd',
   'theory',
 ];
 

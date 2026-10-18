@@ -28,4 +28,3 @@ export function expirationCutoff(autoUnmark: boolean, expireDays: number, now: n
 export function isGoalMet(learnedToday: number, goal: number): boolean {
   return learnedToday >= goal;
 }
-

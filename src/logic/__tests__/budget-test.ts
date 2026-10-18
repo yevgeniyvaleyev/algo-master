@@ -92,7 +92,7 @@ describe('availableMs', () => {
 describe('dayTimeline', () => {
   const base = { start: at(9), end: deadline, goal: 3 };
 
-  it('packs remaining algorithms against the deadline after fun and free time', () => {
+  it('places remaining algorithms by the even plan, with fun and free time around them', () => {
     const t = dayTimeline({
       ...base,
       now: at(15),
@@ -103,24 +103,30 @@ describe('dayTimeline', () => {
       ],
       available: 20 * MIN,
     });
+    // 15:00-22:00 split in two 3.5 h halves: midpoints 16:45 and 20:15.
+    const half = 30 * 1000;
     expect(t.latestStart).toBe(at(20, 15));
     expect(t.shortageMs).toBe(0);
     expect(t.segments.map((s) => [s.kind, s.start, s.end])).toEqual([
       ['past', at(9), at(15)],
       ['fun', at(15), at(15, 20)],
-      ['free', at(15, 20), at(20, 15)],
-      ['algo', at(20, 15), at(21)],
-      ['algo', at(21), at(22)],
+      ['free', at(15, 20), at(16, 22) + half],
+      ['algo', at(16, 22) + half, at(17, 7) + half],
+      ['free', at(17, 7) + half, at(19, 45)],
+      ['algo', at(19, 45), at(20, 45)],
+      ['free', at(20, 45), at(22)],
     ]);
+    expect(t.nextAlarm).toBe(at(16, 22) + half);
     expect(t.ticks).toHaveLength(1);
   });
 
-  it('squeezes blocks and reports the shortage when time is too short', () => {
+  it('cuts blocks at the deadline and reports the shortage when time is too short', () => {
     const t = dayTimeline({ ...base, now: at(21, 30), learned: [], upcoming: easy(3), available: 0 });
     expect(t.shortageMs).toBe(60 * MIN);
-    const algos = t.segments.filter((s) => s.kind === 'algo');
-    expect(algos[0].start).toBe(at(21, 30));
-    expect(algos[2].end).toBe(deadline);
+    expect(t.segments.filter((s) => s.kind === 'algo')).toEqual([
+      { kind: 'algo', start: at(21, 30), end: deadline, difficulty: 'easy' },
+    ]);
+    expect(t.nextAlarm).toBe(at(21, 40));
   });
 
   it('shows the rest of the day as unlimited once the goal is met', () => {
@@ -141,5 +147,6 @@ describe('dayTimeline', () => {
     const t = dayTimeline({ ...base, now: at(7), learned: [], upcoming: easy(3), available: 0 });
     expect(t.now).toBe(at(9));
     expect(t.segments[0].kind).toBe('free');
+    expect(t.nextAlarm).toBe(at(10, 55));
   });
 });

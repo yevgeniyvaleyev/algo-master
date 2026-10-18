@@ -15,6 +15,12 @@ export interface Settings {
   difficultyFactors: DifficultyFactors;
   autoUnmark: boolean;
   expireDays: number;
+  /** How many recent days the History tab shows (display only; learn_log is never pruned). */
+  historyDays: number;
+  /** Multiplier of the Leitner box intervals (1/3/7/14/30 days). */
+  cardIntervalFactor: number;
+  /** How many cards rotate in Leitner box 1; other new cards wait until there's room. */
+  cardBoxOneSize: number;
   theme: ThemeMode;
   blockedPackages: string[];
   codeFontSize: number;
@@ -22,6 +28,8 @@ export interface Settings {
   reminderStartHour: number;
   reminderEndHour: number;
   reminderIntervalHours: number;
+  /** Full-screen alarm at the start of each evenly planned algorithm (installed builds only). */
+  alarmsEnabled: boolean;
   /** Manual collapse state per topic id on the list screen; topics without an entry collapse once fully learned. */
   collapsedTopics: Record<string, boolean>;
 }
@@ -33,6 +41,9 @@ export const DEFAULT_SETTINGS: Settings = {
   difficultyFactors: { easy: 1, medium: 1.5, hard: 2 },
   autoUnmark: false,
   expireDays: 14,
+  historyDays: 7,
+  cardIntervalFactor: 1,
+  cardBoxOneSize: 10,
   theme: 'system',
   blockedPackages: [],
   codeFontSize: 13,
@@ -40,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderStartHour: 9,
   reminderEndHour: 21,
   reminderIntervalHours: 1,
+  alarmsEnabled: true,
   collapsedTopics: {},
 };
 
