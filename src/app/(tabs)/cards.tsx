@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
@@ -30,9 +30,15 @@ export default function CardsScreen() {
   const capacity = useSettings((s) => s.cardBoxOneSize);
   const [session, setSession] = useState<Session | null>(null);
   const [flipped, setFlipped] = useState(false);
+  // Set when a card opens its algorithm screen: coming back resumes the session instead of rebuilding it.
+  const resumeOnFocus = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
+      if (resumeOnFocus.current) {
+        resumeOnFocus.current = false;
+        return;
+      }
       let cancelled = false;
       getCardDeck().then((deck) => {
         if (cancelled) return;
@@ -104,7 +110,15 @@ export default function CardsScreen() {
         </Text>
         <BoxCounts deck={deck} active={current.box ?? 1} />
       </View>
-      <FlashCard key={session.step} card={current} flipped={flipped} />
+      <FlashCard
+        key={session.step}
+        card={current}
+        flipped={flipped}
+        onOpen={() => {
+          resumeOnFocus.current = true;
+          router.push({ pathname: '/algo/[slug]', params: { slug: current.slug } });
+        }}
+      />
       <View style={styles.buttons}>
         <ArrowButton
           icon="chevron-back"
@@ -184,7 +198,7 @@ function BoxCounts({ deck, active }: { deck: DeckCard[]; active?: number }) {
 }
 
 /** Original condition on the front, the solution (own one first) on the back; flipped by the button below. */
-function FlashCard({ card, flipped }: { card: DeckCard; flipped: boolean }) {
+function FlashCard({ card, flipped, onOpen }: { card: DeckCard; flipped: boolean; onOpen: () => void }) {
   const colors = useColors();
   const content = getAlgoContent(card.slug);
   const custom = useQuery(() => getCustomSolution(card.slug), card.slug);
@@ -211,6 +225,14 @@ function FlashCard({ card, flipped }: { card: DeckCard; flipped: boolean }) {
       <View style={[styles.boxChip, { backgroundColor: colors.primary }]}>
         <Text style={[styles.boxChipText, { color: colors.onPrimary }]}>Коробка {card.box ?? 1}</Text>
       </View>
+      <Pressable
+        onPress={onOpen}
+        hitSlop={8}
+        accessibilityLabel="Открыть алгоритм"
+        style={({ pressed }) => [styles.open, { backgroundColor: pressed ? colors.surfaceAlt : 'transparent' }]}
+      >
+        <Ionicons name="open-outline" size={20} color={colors.primary} />
+      </Pressable>
     </View>
   );
 
@@ -270,6 +292,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   cardTitle: { flexShrink: 1, fontSize: 15, fontWeight: '700' },
+  open: { marginLeft: 'auto', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   boxChip: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
   boxChipText: { fontSize: 12, fontWeight: '700' },
   missing: { textAlign: 'center', marginTop: 32 },
