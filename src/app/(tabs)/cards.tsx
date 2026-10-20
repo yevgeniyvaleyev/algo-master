@@ -197,12 +197,18 @@ function BoxCounts({ deck, active }: { deck: DeckCard[]; active?: number }) {
   return <CardBoxes {...boxCounts(deck)} active={active} />;
 }
 
-/** Original condition on the front, the solution (own one first) on the back; flipped by the button below. */
+/**
+ * Original condition on the front, the solution on the back (own one first; when both exist a «1 / 2» toggle switches own / bundled);
+ * flipped by the button below. The bulb button opens the algorithm screen.
+ */
 function FlashCard({ card, flipped, onOpen }: { card: DeckCard; flipped: boolean; onOpen: () => void }) {
   const colors = useColors();
   const content = getAlgoContent(card.slug);
   const custom = useQuery(() => getCustomSolution(card.slug), card.slug);
-  const solution = custom ?? content?.solutionTs;
+  const original = content?.solutionTs;
+  const [showOriginal, setShowOriginal] = useState(false);
+  const canToggle = custom != null && !!original;
+  const solution = (showOriginal && original) || (custom ?? original);
   const condition = content?.conditionMd;
   const rotation = useSharedValue(0);
 
@@ -216,30 +222,63 @@ function FlashCard({ card, flipped, onOpen }: { card: DeckCard; flipped: boolean
   }));
 
   const face = [styles.face, { backgroundColor: colors.surface, borderColor: colors.border }];
-  const header = (
-    <View style={[styles.cardHeader, { borderColor: colors.border }]}>
-      <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
-        {displayTitle(card)}
-      </Text>
-      <DifficultyBadge difficulty={card.difficulty} />
-      <View style={[styles.boxChip, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.boxChipText, { color: colors.onPrimary }]}>Коробка {card.box ?? 1}</Text>
+  const header = (back: boolean) => {
+    // Only the solution side carries the toggle, so only it compacts the badges.
+    const compact = back && canToggle;
+    return (
+      <View style={[styles.cardHeader, { borderColor: colors.border }]}>
+        {/* The title wraps within its own column; badges and buttons stay on the right. On the solution side with an own
+          solution they shrink (E/M/H, bare box number) to make room for the toggle. */}
+        <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={3}>
+          {displayTitle(card)}
+        </Text>
+        <View style={styles.headerSide}>
+          <DifficultyBadge difficulty={card.difficulty} short={compact} />
+          <View
+            accessible
+            accessibilityLabel={`Коробка ${card.box ?? 1}`}
+            style={[styles.boxChip, { backgroundColor: colors.primary }]}
+          >
+            {!compact && <Ionicons name="archive" size={13} color={colors.onPrimary} />}
+            <Text style={[styles.boxChipText, { color: colors.onPrimary }]}>{card.box ?? 1}</Text>
+          </View>
+          {compact && (
+            <View style={[styles.segment, { backgroundColor: colors.surfaceAlt }]}>
+              {[false, true].map((orig) => {
+                const on = showOriginal === orig;
+                return (
+                  <Pressable
+                    key={String(orig)}
+                    onPress={() => setShowOriginal(orig)}
+                    hitSlop={4}
+                    accessibilityLabel={orig ? 'Эталонное решение' : 'Моё решение'}
+                    style={[styles.segmentItem, on && { backgroundColor: colors.textMuted }]}
+                  >
+                    <Text style={[styles.segmentText, { color: on ? colors.surface : colors.textMuted }]}>
+                      {orig ? '2' : '1'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          <Pressable
+            onPress={onOpen}
+            hitSlop={8}
+            accessibilityLabel="Открыть алгоритм"
+            style={({ pressed }) => [styles.open, { backgroundColor: pressed ? colors.surfaceAlt : 'transparent' }]}
+          >
+            <Ionicons name="bulb-outline" size={22} color={colors.primary} />
+          </Pressable>
+        </View>
       </View>
-      <Pressable
-        onPress={onOpen}
-        hitSlop={8}
-        accessibilityLabel="Открыть алгоритм"
-        style={({ pressed }) => [styles.open, { backgroundColor: pressed ? colors.surfaceAlt : 'transparent' }]}
-      >
-        <Ionicons name="open-outline" size={20} color={colors.primary} />
-      </Pressable>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.card}>
       <Animated.View style={[face, front]} pointerEvents={flipped ? 'none' : 'auto'}>
-        {header}
+        {header(false)}
         {condition ? (
           <MarkdownView compact>{condition}</MarkdownView>
         ) : (
@@ -247,10 +286,10 @@ function FlashCard({ card, flipped, onOpen }: { card: DeckCard; flipped: boolean
         )}
       </Animated.View>
       <Animated.View style={[face, back]} pointerEvents={flipped ? 'auto' : 'none'}>
-        {header}
+        {header(true)}
         {solution ? (
           <View style={styles.flex}>
-            <CodeViewer code={solution} compact />
+            <CodeViewer key={showOriginal ? 'original' : 'custom'} code={solution} compact />
           </View>
         ) : (
           <Text style={[styles.missing, { color: colors.textMuted }]}>Решения пока нет</Text>
@@ -285,15 +324,26 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    alignItems: 'flex-start',
     gap: 8,
     padding: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  cardTitle: { flexShrink: 1, fontSize: 15, fontWeight: '700' },
-  open: { marginLeft: 'auto', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  boxChip: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  // paddingTop centres the first title line on the 32px action row
+  cardTitle: { flex: 1, fontSize: 15, lineHeight: 20, paddingTop: 6, fontWeight: '700' },
+  headerSide: { flexShrink: 0, height: 32, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  open: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  segment: { flexDirection: 'row', borderRadius: 8, padding: 2, gap: 2 },
+  segmentItem: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  segmentText: { fontSize: 12, fontWeight: '600' },
+  boxChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
   boxChipText: { fontSize: 12, fontWeight: '700' },
   missing: { textAlign: 'center', marginTop: 32 },
   buttons: {

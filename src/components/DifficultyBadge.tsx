@@ -5,11 +5,16 @@ import { useColors } from '@/theme';
 
 const LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
-export function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
+/** `short` shows only the first letter (E / M / H) where space is tight. */
+export function DifficultyBadge({ difficulty, short = false }: { difficulty: Difficulty; short?: boolean }) {
   const color = useColors().difficulty[difficulty];
   return (
-    <View style={[styles.badge, { borderColor: color, backgroundColor: color + '1F' }]}>
-      <Text style={[styles.text, { color }]}>{LABELS[difficulty]}</Text>
+    <View
+      accessible
+      accessibilityLabel={LABELS[difficulty]}
+      style={[styles.badge, { borderColor: color, backgroundColor: color + '1F' }]}
+    >
+      <Text style={[styles.text, { color }]}>{short ? LABELS[difficulty][0] : LABELS[difficulty]}</Text>
     </View>
   );
 }

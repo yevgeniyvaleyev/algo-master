@@ -19,18 +19,19 @@ export function CodeBlock({ code, compact = false }: { code: string; compact?: b
             <View>
               {tokens.map((line, i) => (
                 <Text key={i} style={{ fontFamily: MONO, fontSize, lineHeight, color: theme.plain.color }}>
-                  {line.map((token, key) => {
-                    const { children, style } = getTokenProps({ token });
-                    return (
-                      <Text
-                        key={key}
-                        style={{ color: style?.color, fontStyle: style?.fontStyle as 'italic' | undefined }}
-                      >
-                        {children}
-                      </Text>
-                    );
-                  })}
-                  {line.length === 1 && line[0].empty ? ' ' : null}
+                  {line.length === 1 && line[0].empty
+                    ? ' '
+                    : line.map((token, key) => {
+                        const { children, style } = getTokenProps({ token });
+                        return (
+                          <Text
+                            key={key}
+                            style={{ color: style?.color, fontStyle: style?.fontStyle as 'italic' | undefined }}
+                          >
+                            {children}
+                          </Text>
+                        );
+                      })}
                 </Text>
               ))}
             </View>
