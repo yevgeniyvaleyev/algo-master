@@ -4,8 +4,8 @@ import { useColors } from '@/theme';
 
 /**
  * Flash card pile sizes: «ждут» (waiting outside the box) plus boxes 1–5; `active` highlights the current card's box,
- * `wide` stretches the cells to the width. With `due`, boxes 2–5 that have cards due read «10/3», the 3 in grey (box 1
- * rotates and «ждут» only waits, so they show just their size).
+ * `wide` stretches the cells to the width. With `due`, boxes 2–5 that have cards due read «10/3», the «/3» smaller
+ * and the 3 in orange (box 1 rotates and «ждут» only waits, so they show just their size).
  */
 export function CardBoxes({
   waiting,
@@ -46,10 +46,10 @@ export function CardBoxes({
       <Text style={[styles.value, wide && styles.wideValue, { color: isActive ? colors.onPrimary : colors.text }]}>
         {n}
         {d > 0 && (
-          <>
+          <Text style={[styles.due, wide && styles.wideDue]}>
             <Text style={{ color: isActive ? colors.onPrimary : colors.textMuted }}>/</Text>
-            <Text style={{ color: isActive ? colors.onPrimary : colors.textMuted }}>{d}</Text>
-          </>
+            <Text style={{ color: colors.difficulty.medium }}>{d}</Text>
+          </Text>
         )}
       </Text>
     </View>
@@ -73,4 +73,6 @@ const styles = StyleSheet.create({
   wideLabel: { fontSize: 11 },
   value: { fontSize: 12, fontWeight: '700', textAlign: 'center', fontVariant: ['tabular-nums'] },
   wideValue: { fontSize: 16 },
+  due: { fontSize: 9 },
+  wideDue: { fontSize: 12 },
 });

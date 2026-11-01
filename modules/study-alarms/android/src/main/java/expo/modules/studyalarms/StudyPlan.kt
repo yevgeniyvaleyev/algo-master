@@ -38,7 +38,7 @@ object StudyPlan {
   fun nextAlarmAt(plan: List<Block>, now: Long): Long? =
     plan.firstOrNull()?.let { maxOf(it.start, now + MIN_ALARM_GAP_MS) }
 
-  /** Timestamp of `hour`:00 on the local day of `dayMs` shifted by `dayOffset` days. */
+  /** Timestamp of `hour`:00 on the local day of `dayMs` shifted by `dayOffset` days (mirrors atHour in budget.ts). */
   fun atHour(dayMs: Long, dayOffset: Int, hour: Int): Long =
     Calendar.getInstance().apply {
       timeInMillis = dayMs

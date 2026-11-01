@@ -27,8 +27,9 @@ object AlarmScheduler {
       val learned = if (dayOffset == 0) AlarmStore.learnedToday(config) else 0
       val items = config.upcoming.take(maxOf(0, config.goal - learned))
       if (items.isEmpty()) continue
-      val start = StudyPlan.atHour(now, dayOffset, config.startHour)
-      val deadline = StudyPlan.atHour(now, dayOffset, config.endHour)
+      // Hours of the app's day (startHour ≥ the day start hour, so they never fall before the day begins).
+      val start = StudyPlan.atHour(config.logical(now), dayOffset, config.startHour)
+      val deadline = StudyPlan.atHour(config.logical(now), dayOffset, config.endHour)
       val plan = StudyPlan.planDay(now, start, deadline, items.map { it.costMs })
       val at = StudyPlan.nextAlarmAt(plan, now) ?: continue
       if (at < deadline) return Next(at, items[0])

@@ -1,4 +1,4 @@
-import { addDays } from './dates';
+import { addDays, logicalDay } from './dates';
 
 export interface ReminderWindow {
   /** First reminder hour (0–23), inclusive. */
@@ -42,7 +42,7 @@ export function planReminders(
     const isToday = d === 0;
     const remaining = isToday ? goal - learnedToday : goal;
     if (remaining <= 0) continue;
-    const day = addDays(now, d);
+    const day = addDays(logicalDay(now), d);
     for (const h of hours) {
       const date = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, 0, 0, 0);
       if (date.getTime() > now.getTime()) plan.push({ date, remaining, isToday });

@@ -3,11 +3,14 @@ import { create } from 'zustand';
 
 import { kvGet, kvSet } from '@/db/client';
 import type { DifficultyFactors } from '@/logic/budget';
+import { setDayStartHour } from '@/logic/dates';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 export interface Settings {
   dailyGoal: number;
+  /** Hour (0–6) the app's day starts: marks before it count for the previous day (see `dayKey`). */
+  dayStartHour: number;
   /** Upper bound of entertainment minutes a single learned algorithm can grant. */
   minutesPerAlgo: number;
   /** Estimated minutes to learn an Easy algorithm; harder ones are multiplied by difficultyFactors. */
@@ -21,6 +24,9 @@ export interface Settings {
   cardIntervalFactor: number;
   /** How many cards rotate in Leitner box 1; other new cards wait until there's room. */
   cardBoxOneSize: number;
+  /** Card gate: answer `cardGateCount` flash cards before using the app (on start and after 10 min away). */
+  cardGateEnabled: boolean;
+  cardGateCount: number;
   theme: ThemeMode;
   blockedPackages: string[];
   codeFontSize: number;
@@ -36,6 +42,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   dailyGoal: 3,
+  dayStartHour: 0,
   minutesPerAlgo: 30,
   learnMinutes: 30,
   difficultyFactors: { easy: 1, medium: 1.5, hard: 2 },
@@ -44,6 +51,8 @@ export const DEFAULT_SETTINGS: Settings = {
   historyDays: 7,
   cardIntervalFactor: 1,
   cardBoxOneSize: 10,
+  cardGateEnabled: true,
+  cardGateCount: 2,
   theme: 'system',
   blockedPackages: [],
   codeFontSize: 13,
@@ -71,10 +80,12 @@ export const useSettings = create<SettingsState>((set, get) => ({
   hydrate: async () => {
     const stored = (await kvGet<Partial<Settings>>(KV_KEY)) ?? {};
     const next = { ...DEFAULT_SETTINGS, ...stored };
+    setDayStartHour(next.dayStartHour);
     set(next);
     applyTheme(next.theme);
   },
   update: (patch) => {
+    if (patch.dayStartHour != null) setDayStartHour(patch.dayStartHour);
     set(patch);
     if (patch.theme) applyTheme(patch.theme);
     const { hydrate: _h, update: _u, ...values } = get();

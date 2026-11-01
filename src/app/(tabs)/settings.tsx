@@ -7,6 +7,7 @@ import { Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Te
 
 import type { Difficulty } from '@/content/types';
 import { runExpiration } from '@/logic/actions';
+import { cardsWord, GATE_AWAY_MS } from '@/logic/card-gate';
 import { BOX_INTERVAL_DAYS, boxInterval } from '@/logic/leitner';
 import { ensureNotificationPermission, remindersSupported } from '@/notifications/reminders';
 import { useSettings, type ThemeMode } from '@/store/settings';
@@ -16,6 +17,8 @@ const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 const hourLabel = (h: number) => `${String(h).padStart(2, '0')}:00`;
+/** Latest «Новый день с»; the learning day (reminder window) may not start before it. */
+const MAX_DAY_START_HOUR = 6;
 
 const THEMES: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: 'Авто' },
@@ -132,10 +135,19 @@ export default function SettingsScreen() {
         <Row label="Алгоритмов в день">
           <Stepper value={s.dailyGoal} min={1} max={20} onChange={(v) => s.update({ dailyGoal: v })} />
         </Row>
+        <Row label="Новый день с" hint="Отметки до этого часа засчитываются в предыдущий день">
+          <Stepper
+            value={s.dayStartHour}
+            min={0}
+            max={Math.min(MAX_DAY_START_HOUR, s.reminderStartHour)}
+            format={hourLabel}
+            onChange={(v) => s.update({ dayStartHour: v })}
+          />
+        </Row>
         <Row label="Учебный день с" hint="Окно напоминаний и начало шкалы дня на главном экране">
           <Stepper
             value={s.reminderStartHour}
-            min={0}
+            min={s.dayStartHour}
             max={s.reminderEndHour - 1}
             format={hourLabel}
             onChange={(v) => s.update({ reminderStartHour: v })}
@@ -234,6 +246,21 @@ export default function SettingsScreen() {
             onChange={(v) => s.update({ cardIntervalFactor: v })}
           />
         </Row>
+        <Row
+          label="Карточки при входе"
+          hint={`Чтобы открыть приложение, ответь на ${s.cardGateCount} ${cardsWord(s.cardGateCount)} — при запуске и после ${GATE_AWAY_MS / 60_000} мин. вне приложения`}
+        >
+          <Switch
+            value={s.cardGateEnabled}
+            onValueChange={(v) => s.update({ cardGateEnabled: v })}
+            trackColor={{ true: colors.primary }}
+          />
+        </Row>
+        {s.cardGateEnabled && (
+          <Row label="Сколько карточек">
+            <Stepper value={s.cardGateCount} min={1} max={10} onChange={(v) => s.update({ cardGateCount: v })} />
+          </Row>
+        )}
       </View>
 
       <Text style={[styles.section, { color: colors.textMuted }]}>Напоминания</Text>

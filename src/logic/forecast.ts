@@ -1,4 +1,4 @@
-import { addDays } from './dates';
+import { addDays, logicalDay } from './dates';
 
 /**
  * Forecast of the day when every algorithm is learned at the same time. Simulated day by day: each day learns
@@ -29,7 +29,7 @@ export interface Forecast {
 const EPS = 1e-6;
 
 function startOfDay(ms: number): Date {
-  const d = new Date(ms);
+  const d = logicalDay(new Date(ms));
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 

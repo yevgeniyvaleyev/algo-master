@@ -139,6 +139,7 @@ export default function DashboardScreen() {
   // The budget reads these settings, so reload when any of them changes.
   const budgetKey = useSettings((s) =>
     JSON.stringify([
+      s.dayStartHour,
       s.dailyGoal,
       s.minutesPerAlgo,
       s.learnMinutes,

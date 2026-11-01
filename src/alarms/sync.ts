@@ -21,6 +21,7 @@ export async function syncAlarms(): Promise<void> {
     goal: b.goal,
     learnedToday: b.learned.length,
     day: dayKey(new Date(b.now)),
+    dayStartHour: s.dayStartHour,
     upcoming: b.next.map((a, i) => ({
       slug: a.slug,
       title: displayTitle(a),

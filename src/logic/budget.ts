@@ -1,5 +1,6 @@
 import type { Difficulty } from '@/content/types';
 
+import { logicalDay } from './dates';
 import { nextAlarmAt, planDay, type PlannedBlock } from './study-plan';
 
 /**
@@ -27,9 +28,9 @@ export function algoCostMs(difficulty: Difficulty, learnMinutes: number, factors
   return Math.round(learnMinutes * (factors[difficulty] ?? 1) * MINUTE);
 }
 
-/** Timestamp of `hour`:00 on the local day of `now`. */
+/** Timestamp of `hour`:00 on the app's day of `now` (hours are ≥ the day start hour). */
 export function atHour(now: number, hour: number): number {
-  const d = new Date(now);
+  const d = logicalDay(new Date(now));
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour).getTime();
 }
 

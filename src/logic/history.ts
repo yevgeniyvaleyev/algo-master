@@ -1,6 +1,6 @@
 import type { Difficulty } from '@/content/types';
 
-import { addDays, dayKey } from './dates';
+import { addDays, calendarKey, dayKey } from './dates';
 
 export interface HistoryEntry {
   /** Marked learned, or refreshed with a flash card (✓). */
@@ -57,7 +57,7 @@ export function groupHistory(rows: readonly HistoryEntry[], dayKeys: readonly st
 
 /** «Сегодня, 14 октября», «Вчера, 13 октября», «Понедельник, 12 октября» (+ the year when it differs). */
 export function formatDayHeader(date: Date, today: Date = new Date()): string {
-  const key = dayKey(date);
+  const key = calendarKey(date);
   const name =
     key === dayKey(today) ? 'Сегодня' : key === dayKey(addDays(today, -1)) ? 'Вчера' : WEEKDAYS[date.getDay()];
   return `${name}, ${formatDayMonth(date, today)}`;

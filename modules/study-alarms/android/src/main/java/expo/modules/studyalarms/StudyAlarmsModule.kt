@@ -26,6 +26,7 @@ class AlarmConfig : Record {
   @Field var goal: Int = 3
   @Field var learnedToday: Int = 0
   @Field var day: String = ""
+  @Field var dayStartHour: Int = 0
   @Field var upcoming: List<AlarmItemRecord> = emptyList()
 }
 

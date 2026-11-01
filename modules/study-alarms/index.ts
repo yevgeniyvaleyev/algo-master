@@ -19,6 +19,8 @@ export interface StudyAlarmsConfig {
   learnedToday: number;
   /** Local day ('YYYY-MM-DD') that learnedToday refers to. */
   day: string;
+  /** Hour the app's day starts (setting «Новый день с»); the native "today" and plan hours are shifted by it. */
+  dayStartHour: number;
   /** Next unlearned algorithms in suggestion order (at least the remaining goal). */
   upcoming: AlarmItem[];
 }

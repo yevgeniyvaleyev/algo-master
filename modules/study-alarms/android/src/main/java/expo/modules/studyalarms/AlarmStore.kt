@@ -21,13 +21,18 @@ object AlarmStore {
     val goal: Int,
     val learnedToday: Int,
     val day: String,
+    val dayStartHour: Int,
     val upcoming: List<Item>,
-  )
+  ) {
+    /** `ms` moved back by the day start hour: its calendar day is the app's day. */
+    fun logical(ms: Long): Long = ms - dayStartHour * 3_600_000L
+  }
 
   private fun prefs(ctx: Context): SharedPreferences = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-  /** Local calendar day, same format as dayKey() in JS. */
-  fun today(): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+  /** The app's day (local calendar day shifted by the day start hour), same format as dayKey() in JS. */
+  fun today(config: Config): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(config.logical(System.currentTimeMillis())))
 
   fun write(ctx: Context, config: AlarmConfig) {
     val upcoming = JSONArray()
@@ -43,6 +48,7 @@ object AlarmStore {
       .putInt("goal", config.goal)
       .putInt("learned", config.learnedToday)
       .putString("day", config.day)
+      .putInt("dayStartHour", config.dayStartHour)
       .putString("upcoming", upcoming.toString())
       .apply()
   }
@@ -61,12 +67,13 @@ object AlarmStore {
       goal = p.getInt("goal", 3),
       learnedToday = p.getInt("learned", 0),
       day = p.getString("day", "") ?: "",
+      dayStartHour = p.getInt("dayStartHour", 0),
       upcoming = upcoming,
     )
   }
 
   /** Learned today; a config written on an earlier day counts as 0. */
-  fun learnedToday(config: Config): Int = if (config.day == today()) config.learnedToday else 0
+  fun learnedToday(config: Config): Int = if (config.day == today(config)) config.learnedToday else 0
 
   fun saveNext(ctx: Context, at: Long?, item: Item?) {
     prefs(ctx).edit()

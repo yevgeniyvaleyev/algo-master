@@ -15,8 +15,11 @@ object BlockerStore {
 
   private fun prefs(ctx: Context): SharedPreferences = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-  /** Local calendar day, same format as dayKey() in JS. */
-  fun today(): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+  /** The app's day (local calendar day shifted by the day start hour), same format as dayKey() in JS. */
+  fun today(ctx: Context): String {
+    val shiftMs = prefs(ctx).getInt("dayStartHour", 0) * 3_600_000L
+    return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(System.currentTimeMillis() - shiftMs))
+  }
 
   fun write(ctx: Context, config: BlockerConfig) {
     prefs(ctx).edit()
@@ -28,6 +31,7 @@ object BlockerStore {
       .putLong("deadlineMs", config.deadlineMs.toLong())
       .putLong("reserveMs", config.reserveMs.toLong())
       .putString("day", config.day)
+      .putInt("dayStartHour", config.dayStartHour)
       .apply()
   }
 
@@ -41,12 +45,12 @@ object BlockerStore {
   /** Learned today; a config written on an earlier day counts as 0 (new day, nothing learned yet). */
   fun learnedToday(ctx: Context): Int {
     val p = prefs(ctx)
-    return if (p.getString("day", "") == today()) p.getInt("learned", 0) else 0
+    return if (p.getString("day", "") == today(ctx)) p.getInt("learned", 0) else 0
   }
 
   fun goalMet(ctx: Context): Boolean = learnedToday(ctx) >= goal(ctx)
 
-  private fun isToday(ctx: Context): Boolean = prefs(ctx).getString("day", "") == today()
+  private fun isToday(ctx: Context): Boolean = prefs(ctx).getString("day", "") == today(ctx)
 
   /** Entertainment time granted today; 0 when the config is from an earlier day. */
   fun grantedMs(ctx: Context): Long = if (isToday(ctx)) prefs(ctx).getLong("grantedMs", 0L) else 0L
@@ -67,11 +71,11 @@ object BlockerStore {
 
   fun usedTodayMs(ctx: Context): Long {
     val p = prefs(ctx)
-    return if (p.getString("usedDay", "") == today()) p.getLong("usedMs", 0L) else 0L
+    return if (p.getString("usedDay", "") == today(ctx)) p.getLong("usedMs", 0L) else 0L
   }
 
   fun addUsed(ctx: Context, ms: Long) {
     if (ms <= 0) return
-    prefs(ctx).edit().putString("usedDay", today()).putLong("usedMs", usedTodayMs(ctx) + ms).apply()
+    prefs(ctx).edit().putString("usedDay", today(ctx)).putLong("usedMs", usedTodayMs(ctx) + ms).apply()
   }
 }

@@ -18,5 +18,6 @@ export async function syncBlocker(): Promise<void> {
     deadlineMs: b.deadline,
     reserveMs: b.reserve,
     day: dayKey(new Date(b.now)),
+    dayStartHour: s.dayStartHour,
   });
 }

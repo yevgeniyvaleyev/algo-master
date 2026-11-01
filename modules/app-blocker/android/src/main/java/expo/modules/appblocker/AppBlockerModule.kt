@@ -20,6 +20,7 @@ class BlockerConfig : Record {
   @Field var deadlineMs: Double = 0.0
   @Field var reserveMs: Double = 0.0
   @Field var day: String = ""
+  @Field var dayStartHour: Int = 0
 }
 
 class AppBlockerModule : Module() {

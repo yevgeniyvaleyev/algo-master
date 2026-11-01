@@ -4,6 +4,7 @@ import { syncReminders } from '@/notifications/reminders';
 
 /** Settings that affect reminders, alarms or blocking (the learning day doubles as the reminder window); changing any re-syncs all. */
 export const BACKGROUND_SETTING_KEYS = [
+  'dayStartHour',
   'remindersEnabled',
   'reminderStartHour',
   'reminderEndHour',

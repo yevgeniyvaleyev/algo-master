@@ -14,6 +14,8 @@ export interface BlockerConfig {
   reserveMs: number;
   /** Local day ('YYYY-MM-DD') that learnedToday refers to. */
   day: string;
+  /** Hour the app's day starts (setting «Новый день с»); the native "today" is shifted by it. */
+  dayStartHour: number;
 }
 
 export interface LaunchableApp {
