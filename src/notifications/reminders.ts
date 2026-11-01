@@ -1,4 +1,4 @@
-import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { isRunningInExpoGo } from 'expo';
 import { Platform } from 'react-native';
 
 import { getTodayCount } from '@/db/repo';
@@ -8,10 +8,11 @@ import { useSettings } from '@/store/settings';
 type NotificationsModule = typeof import('expo-notifications');
 
 /**
- * Expo Go on Android no longer ships expo-notifications, so reminders only work in a development or
- * release build. In Expo Go the module is never loaded and every function below is a no-op.
+ * expo-notifications is only partly supported in Expo Go on Android (creating a channel throws), so reminders
+ * only work in a development or release build. In Expo Go the module is never loaded and every function
+ * below is a no-op. (Since SDK 58 `executionEnvironment` doesn't single out Expo Go, so ask `expo` directly.)
  */
-export const remindersSupported = Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
+export const remindersSupported = !isRunningInExpoGo();
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- must not load in Expo Go
 const Notifications: NotificationsModule | null = remindersSupported ? require('expo-notifications') : null;

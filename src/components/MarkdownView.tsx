@@ -65,10 +65,10 @@ const makeRules = (compact: boolean): RenderRules => ({
   },
   image: (node, children, parent, styles, allowedImageHandlers, defaultImageHandler) => {
     const asset = bundledImages[node.attributes.src];
-    if (asset == null) {
+    const { width, height } = (asset == null ? undefined : Image.resolveAssetSource(asset)) ?? {};
+    if (asset == null || width == null || height == null) {
       return renderRules.image!(node, children, parent, styles, allowedImageHandlers, defaultImageHandler);
     }
-    const { width, height } = Image.resolveAssetSource(asset);
     return (
       <Image
         key={node.key}

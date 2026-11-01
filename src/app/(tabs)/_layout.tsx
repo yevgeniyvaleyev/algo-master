@@ -1,11 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import Tabs from 'expo-router/js-tabs';
+import { Tabs } from 'expo-router/js-tabs';
 
 import { getCardDeck } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
 import { dueCount } from '@/logic/leitner';
 import { useSettings } from '@/store/settings';
 import { useColors } from '@/theme';
+
+// Tab bar colors may be any ColorValue; ours are always plain strings.
+const tabIcon = (name: keyof typeof Ionicons.glyphMap) =>
+  function TabIcon({ color, size }: { color: unknown; size: number }) {
+    return <Ionicons name={name} color={color as string} size={size} />;
+  };
 
 export default function TabsLayout() {
   const deck = useQuery(getCardDeck);
@@ -25,14 +31,14 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Прогресс',
-          tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" color={color} size={size} />,
+          tabBarIcon: tabIcon('stats-chart'),
         }}
       />
       <Tabs.Screen
         name="algos"
         options={{
           title: 'Алгоритмы',
-          tabBarIcon: ({ color, size }) => <Ionicons name="list" color={color} size={size} />,
+          tabBarIcon: tabIcon('list'),
         }}
       />
       <Tabs.Screen
@@ -40,21 +46,21 @@ export default function TabsLayout() {
         options={{
           title: 'Карточки',
           tabBarBadge: due > 0 ? due : undefined,
-          tabBarIcon: ({ color, size }) => <Ionicons name="albums-outline" color={color} size={size} />,
+          tabBarIcon: tabIcon('albums-outline'),
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: 'История',
-          tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" color={color} size={size} />,
+          tabBarIcon: tabIcon('time-outline'),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Настройки',
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} />,
+          tabBarIcon: tabIcon('settings-outline'),
         }}
       />
     </Tabs>
