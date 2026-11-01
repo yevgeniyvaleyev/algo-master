@@ -16,15 +16,17 @@ import {
   getCardRefreshStats,
   getDailyCounts,
   getDifficultyStats,
+  getInProgress,
   getLearnedTimes,
   getTopicStats,
   getTotalLearnEvents,
+  type AlgoRow,
 } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
 import { dayKey, lastDays } from '@/logic/dates';
 import { availableMs, dayTimeline } from '@/logic/budget';
 import { loadDayBudget } from '@/logic/day-budget';
-import { boxCounts, dueCount } from '@/logic/leitner';
+import { boxCounts, dueByBox, dueCount } from '@/logic/leitner';
 import { forecastFinish, recentPace, sustainable } from '@/logic/forecast';
 import { computeStreak } from '@/logic/progress';
 import { useSettings } from '@/store/settings';
@@ -34,16 +36,18 @@ const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 async function loadDashboard() {
-  const [counts, byDifficulty, byTopic, totalEvents, budget, learnedTimes, cardRefresh, deck] = await Promise.all([
-    getDailyCounts(366),
-    getDifficultyStats(),
-    getTopicStats(),
-    getTotalLearnEvents(),
-    loadDayBudget(),
-    getLearnedTimes(),
-    getCardRefreshStats(),
-    getCardDeck(),
-  ]);
+  const [counts, byDifficulty, byTopic, totalEvents, budget, learnedTimes, cardRefresh, deck, inProgress] =
+    await Promise.all([
+      getDailyCounts(366),
+      getDifficultyStats(),
+      getTopicStats(),
+      getTotalLearnEvents(),
+      loadDayBudget(),
+      getLearnedTimes(),
+      getCardRefreshStats(),
+      getCardDeck(),
+      getInProgress(),
+    ]);
   // Expo Go has no blocker, so nothing has been used there.
   return {
     counts,
@@ -54,6 +58,7 @@ async function loadDashboard() {
     learnedTimes,
     cardRefresh,
     deck,
+    inProgress,
     usedMs: AppBlocker?.getUsedMs() ?? 0,
   };
 }
@@ -91,6 +96,23 @@ function StatTile({ label, value, color }: { label: string; value: number; color
       <Text style={[styles.tileValue, { color }]}>{value}</Text>
       <Text style={[styles.tileLabel, { color: colors.textMuted }]}>{label}</Text>
     </View>
+  );
+}
+
+/** A tappable algorithm row that opens its screen. */
+function AlgoLink({ algo }: { algo: AlgoRow }) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: '/algo/[slug]', params: { slug: algo.slug } })}
+      style={styles.nextRow}
+    >
+      <Text style={{ color: colors.text, flex: 1 }} numberOfLines={1}>
+        {displayTitle(algo)}
+      </Text>
+      <DifficultyBadge difficulty={algo.difficulty} />
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </Pressable>
   );
 }
 
@@ -199,21 +221,24 @@ export default function DashboardScreen() {
         </View>
       )}
 
+      {data.inProgress.length > 0 && (
+        <View style={card}>
+          <View style={styles.statRow}>
+            <Ionicons name="time" size={18} color={colors.difficulty.medium} />
+            <Text style={[styles.cardTitle, { color: colors.text, flex: 1 }]}>В процессе</Text>
+            <Text style={{ color: colors.textMuted }}>{data.inProgress.length}</Text>
+          </View>
+          {data.inProgress.map((a) => (
+            <AlgoLink key={a.slug} algo={a} />
+          ))}
+        </View>
+      )}
+
       {next.length > 0 && (
         <View style={card}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Следующие</Text>
           {next.map((a) => (
-            <Pressable
-              key={a.slug}
-              onPress={() => router.push({ pathname: '/algo/[slug]', params: { slug: a.slug } })}
-              style={styles.nextRow}
-            >
-              <Text style={{ color: colors.text, flex: 1 }} numberOfLines={1}>
-                {displayTitle(a)}
-              </Text>
-              <DifficultyBadge difficulty={a.difficulty} />
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
+            <AlgoLink key={a.slug} algo={a} />
           ))}
         </View>
       )}
@@ -271,7 +296,7 @@ export default function DashboardScreen() {
             <StatTile label="Повторено всего" value={data.cardRefresh.total} color={colors.primary} />
             <StatTile label="К повтору" value={dueCount(data.deck, boxOneSize)} color={colors.difficulty.medium} />
           </View>
-          <CardBoxes {...boxCounts(data.deck)} wide />
+          <CardBoxes {...boxCounts(data.deck)} due={dueByBox(data.deck, boxOneSize)} wide />
         </Pressable>
       )}
 

@@ -28,3 +28,16 @@ export function expirationCutoff(autoUnmark: boolean, expireDays: number, now: n
 export function isGoalMet(learnedToday: number, goal: number): boolean {
   return learnedToday >= goal;
 }
+
+/** An algorithm's mark: not learned, being learned (in progress) or learned. */
+export type AlgoStatus = 'none' | 'inProgress' | 'learned';
+
+export function algoStatus(a: { learnedAt: number | null; inProgressAt: number | null }): AlgoStatus {
+  if (a.learnedAt != null) return 'learned';
+  return a.inProgressAt != null ? 'inProgress' : 'none';
+}
+
+/** The header toggle cycles not learned → in progress → learned → not learned. */
+export function nextStatus(status: AlgoStatus): AlgoStatus {
+  return status === 'none' ? 'inProgress' : status === 'inProgress' ? 'learned' : 'none';
+}

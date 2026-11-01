@@ -7,7 +7,7 @@ export const db = (cache.__algomasterDb ??= SQLite.openDatabaseSync('algomaster.
 
 export const UNCATEGORIZED_KEY = '__uncategorized__';
 
-const DATABASE_VERSION = 5;
+const DATABASE_VERSION = 6;
 
 export async function migrate(): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -104,6 +104,17 @@ INSERT INTO card_log (slug, day, ts)
   FROM cards WHERE box >= 2 AND reviewed_at IS NOT NULL;
 `);
     version = 5;
+  }
+
+  if (version === 5) {
+    // Algorithms the user has started learning but not marked learned yet (the middle state of the header toggle).
+    await db.execAsync(`
+CREATE TABLE in_progress (
+  slug TEXT PRIMARY KEY NOT NULL,
+  started_at INTEGER NOT NULL
+);
+`);
+    version = 6;
   }
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);

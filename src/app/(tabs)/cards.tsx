@@ -14,7 +14,16 @@ import { getCardDeck, getCustomSolution } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
 import { saveCardWrites } from '@/logic/actions';
 import { formatDayMonth } from '@/logic/history';
-import { answer, boxCounts, browse, nextDueDay, startSession, type DeckCard, type Session } from '@/logic/leitner';
+import {
+  answer,
+  boxCounts,
+  browse,
+  dueByBox,
+  nextDueDay,
+  startSession,
+  type DeckCard,
+  type Session,
+} from '@/logic/leitner';
 import { useSettings } from '@/store/settings';
 import { useColors } from '@/theme';
 
@@ -92,7 +101,7 @@ export default function CardsScreen() {
                 Следующие карточки: {formatDayMonth(new Date(y, m - 1, d))}
               </Text>
             )}
-            <BoxCounts deck={deck} />
+            <BoxCounts deck={deck} capacity={capacity} />
           </>
         )}
       </View>
@@ -108,7 +117,7 @@ export default function CardsScreen() {
         <Text style={{ color: colors.textMuted, fontSize: 13 }}>
           {reviewsLeft > 0 ? `К повтору ещё ${reviewsLeft}` : 'По кругу'}
         </Text>
-        <BoxCounts deck={deck} active={current.box ?? 1} />
+        <BoxCounts deck={deck} active={current.box ?? 1} capacity={capacity} />
       </View>
       <FlashCard
         key={session.step}
@@ -192,9 +201,9 @@ function ArrowButton({
   );
 }
 
-/** «Ожидают» plus the five boxes. */
-function BoxCounts({ deck, active }: { deck: DeckCard[]; active?: number }) {
-  return <CardBoxes {...boxCounts(deck)} active={active} />;
+/** «Ожидают» plus the five boxes, with the cards to review in each. */
+function BoxCounts({ deck, active, capacity }: { deck: DeckCard[]; active?: number; capacity: number }) {
+  return <CardBoxes {...boxCounts(deck)} due={dueByBox(deck, capacity)} active={active} />;
 }
 
 /**

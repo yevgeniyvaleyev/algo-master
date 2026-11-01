@@ -3,7 +3,7 @@ import { useDataVersion } from '@/store/data-version';
 import { useSettings } from '@/store/settings';
 
 import { syncBackground } from './background';
-import { expirationCutoff } from './progress';
+import { expirationCutoff, type AlgoStatus } from './progress';
 
 const bump = () => useDataVersion.getState().bump();
 
@@ -15,8 +15,10 @@ function mutation<A extends unknown[]>(fn: (...args: A) => Promise<unknown>) {
   };
 }
 
-export const setLearned = mutation(async (slug: string, learned: boolean) => {
-  await repo.setLearned(slug, learned);
+/** Sets the header toggle's state: not learned, in progress or learned. */
+export const setStatus = mutation(async (slug: string, status: AlgoStatus) => {
+  if (status === 'inProgress') await repo.setInProgress(slug);
+  else await repo.setLearned(slug, status === 'learned');
   void syncBackground();
 });
 /** Applies several mark/unmark changes at once (bulk mode on the Algorithms list). */

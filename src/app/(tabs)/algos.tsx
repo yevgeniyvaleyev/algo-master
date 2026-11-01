@@ -167,11 +167,15 @@ export default function AlgosScreen() {
                 },
               ]}
             >
-              <Ionicons
-                name={learned ? 'checkmark-circle' : 'ellipse-outline'}
-                size={bulk ? 26 : 22}
-                color={changed ? colors.primary : learned ? colors.success : colors.border}
-              />
+              {!learned && !changed && item.inProgressAt != null ? (
+                <Ionicons name="time" size={bulk ? 26 : 22} color={colors.difficulty.medium} />
+              ) : (
+                <Ionicons
+                  name={learned ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={bulk ? 26 : 22}
+                  color={changed ? colors.primary : learned ? colors.success : colors.border}
+                />
+              )}
               <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
                 {item.leetcodeId != null && <Text style={{ color: colors.textMuted }}>{item.leetcodeId}. </Text>}
                 {item.title}

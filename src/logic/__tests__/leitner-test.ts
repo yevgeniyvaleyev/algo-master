@@ -1,4 +1,14 @@
-import { answer, boxCounts, browse, boxInterval, dueCount, nextDueDay, startSession, type DeckCard } from '../leitner';
+import {
+  answer,
+  boxCounts,
+  browse,
+  boxInterval,
+  dueByBox,
+  dueCount,
+  nextDueDay,
+  startSession,
+  type DeckCard,
+} from '../leitner';
 
 const today = new Date(2026, 9, 15, 15, 0);
 const now = today.getTime();
@@ -93,6 +103,21 @@ describe('deck helpers', () => {
     const deck = [card('r', { box: 1 }), card('d', { box: 2, dueDay: '2026-10-14' }), ...waitingCards(5)];
     expect(dueCount(deck, 3, today)).toBe(4);
     expect(dueCount([card('r', { box: 1 }), card('s', { box: 1 })], 1, today)).toBe(2);
+  });
+
+  it('splits the due cards by pile', () => {
+    const deck = [
+      card('r', { box: 1 }),
+      card('d', { box: 2, dueDay: '2026-10-14' }),
+      card('later', { box: 2, dueDay: '2026-10-20' }),
+      card('e', { box: 5, dueDay: '2026-10-15' }),
+      ...waitingCards(5),
+    ];
+    expect(dueByBox(deck, 3, today)).toEqual({ waiting: 2, boxes: [1, 1, 0, 0, 1] });
+    expect(dueByBox([card('r', { box: 1 }), card('s', { box: 1 })], 1, today)).toEqual({
+      waiting: 0,
+      boxes: [2, 0, 0, 0, 0],
+    });
   });
 
   it('finds the next due day of boxes 2–5', () => {

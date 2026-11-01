@@ -24,6 +24,8 @@ export interface AlgoRow {
   sortOrder: number;
   leetcodeUrl: string;
   learnedAt: number | null;
+  /** Set while the algorithm is in progress (started but not learned). */
+  inProgressAt: number | null;
 }
 
 export interface TopicWithAlgos extends Topic {
@@ -107,8 +109,8 @@ export async function listTopicsWithAlgos(): Promise<TopicWithAlgos[]> {
   const topics = await listTopics();
   const algos = await db.getAllAsync<AlgoRow>(`
     SELECT a.slug, a.leetcode_id AS leetcodeId, a.title, a.difficulty, a.topic_id AS topicId, a.sort_order AS sortOrder,
-           a.leetcode_url AS leetcodeUrl, p.learned_at AS learnedAt
-    FROM algos a LEFT JOIN progress p ON p.slug = a.slug
+           a.leetcode_url AS leetcodeUrl, p.learned_at AS learnedAt, ip.started_at AS inProgressAt
+    FROM algos a LEFT JOIN progress p ON p.slug = a.slug LEFT JOIN in_progress ip ON ip.slug = a.slug
     ORDER BY a.sort_order, a.leetcode_id`);
   const byTopic = new Map<number, AlgoRow[]>();
   for (const a of algos) {
@@ -163,8 +165,9 @@ export async function moveAlgo(slug: string, topicId: number): Promise<void> {
 export async function getAlgo(slug: string): Promise<AlgoRow | null> {
   return db.getFirstAsync<AlgoRow>(
     `SELECT a.slug, a.leetcode_id AS leetcodeId, a.title, a.difficulty, a.topic_id AS topicId, a.sort_order AS sortOrder,
-            a.leetcode_url AS leetcodeUrl, p.learned_at AS learnedAt
-     FROM algos a LEFT JOIN progress p ON p.slug = a.slug WHERE a.slug = ?`,
+            a.leetcode_url AS leetcodeUrl, p.learned_at AS learnedAt, ip.started_at AS inProgressAt
+     FROM algos a LEFT JOIN progress p ON p.slug = a.slug LEFT JOIN in_progress ip ON ip.slug = a.slug
+     WHERE a.slug = ?`,
     slug,
   );
 }
@@ -172,6 +175,8 @@ export async function getAlgo(slug: string): Promise<AlgoRow | null> {
 export async function setLearned(slug: string, learned: boolean, now: Date = new Date()): Promise<void> {
   const today = dayKey(now);
   await db.withExclusiveTransactionAsync(async (tx) => {
+    // Learning or unmarking ends "in progress".
+    await tx.runAsync('DELETE FROM in_progress WHERE slug = ?', slug);
     if (learned) {
       await tx.runAsync(
         'INSERT INTO progress (slug, learned_at) VALUES (?, ?) ON CONFLICT(slug) DO UPDATE SET learned_at = excluded.learned_at',
@@ -185,6 +190,26 @@ export async function setLearned(slug: string, learned: boolean, now: Date = new
       await tx.runAsync('DELETE FROM learn_log WHERE slug = ? AND day = ?', slug, today);
     }
   });
+}
+
+/** Marks an algorithm as in progress (started, not learned yet). A learned mark is removed, as by `setLearned`. */
+export async function setInProgress(slug: string, now: Date = new Date()): Promise<void> {
+  await setLearned(slug, false, now);
+  await db.runAsync(
+    'INSERT INTO in_progress (slug, started_at) VALUES (?, ?) ON CONFLICT(slug) DO NOTHING',
+    slug,
+    now.getTime(),
+  );
+}
+
+/** Algorithms in progress, most recently started first. */
+export async function getInProgress(): Promise<AlgoRow[]> {
+  return db.getAllAsync<AlgoRow>(
+    `SELECT a.slug, a.leetcode_id AS leetcodeId, a.title, a.difficulty, a.topic_id AS topicId, a.sort_order AS sortOrder,
+            a.leetcode_url AS leetcodeUrl, NULL AS learnedAt, ip.started_at AS inProgressAt
+     FROM in_progress ip JOIN algos a ON a.slug = ip.slug
+     ORDER BY ip.started_at DESC`,
+  );
 }
 
 /** Removes marks older than the cutoff. Returns how many were unmarked. */
@@ -349,10 +374,11 @@ export async function getTotalLearnEvents(): Promise<number> {
 export async function getNextUnlearned(limit: number): Promise<AlgoRow[]> {
   const rows = await db.getAllAsync<AlgoRow & { topicOrder: number }>(
     `SELECT a.slug, a.leetcode_id AS leetcodeId, a.title, a.difficulty, a.topic_id AS topicId, a.sort_order AS sortOrder,
-            a.leetcode_url AS leetcodeUrl, NULL AS learnedAt, t.sort_order AS topicOrder
+            a.leetcode_url AS leetcodeUrl, NULL AS learnedAt, ip.started_at AS inProgressAt, t.sort_order AS topicOrder
      FROM algos a
      JOIN topics t ON t.id = a.topic_id
      LEFT JOIN progress p ON p.slug = a.slug
+     LEFT JOIN in_progress ip ON ip.slug = a.slug
      WHERE p.slug IS NULL`,
   );
   // Topic of the most recently learned algorithm: suggestions continue with the next topic.

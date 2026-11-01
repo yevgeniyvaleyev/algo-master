@@ -8,14 +8,23 @@ import { displayTitle } from '@/content/format';
 import { getAlgo } from '@/db/repo';
 import { AlgoSlugContext } from '@/hooks/use-algo-content';
 import { useQuery } from '@/hooks/use-query';
-import { setLearned } from '@/logic/actions';
+import { setStatus } from '@/logic/actions';
+import { algoStatus, nextStatus, type AlgoStatus } from '@/logic/progress';
 import { useColors } from '@/theme';
+
+const STATUS_VIEW: Record<AlgoStatus, { icon: keyof typeof Ionicons.glyphMap; label: string }> = {
+  none: { icon: 'ellipse-outline', label: 'Изучить' },
+  inProgress: { icon: 'time', label: 'Изучаю' },
+  learned: { icon: 'checkmark-circle', label: 'Изучено' },
+};
 
 export default function AlgoLayout() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const colors = useColors();
   const algo = useQuery(() => getAlgo(slug), slug);
-  const learned = algo?.learnedAt != null;
+  const status = algo ? algoStatus(algo) : 'none';
+  const view = STATUS_VIEW[status];
+  const tint = status === 'learned' ? colors.success : status === 'inProgress' ? colors.difficulty.medium : null;
 
   return (
     <>
@@ -34,17 +43,11 @@ export default function AlgoLayout() {
             algo ? (
               <Pressable
                 hitSlop={10}
-                onPress={() => setLearned(slug, !learned)}
-                style={[styles.toggle, { backgroundColor: learned ? colors.success : colors.surfaceAlt }]}
+                onPress={() => setStatus(slug, nextStatus(status))}
+                style={[styles.toggle, { backgroundColor: tint ?? colors.surfaceAlt }]}
               >
-                <Ionicons
-                  name={learned ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={18}
-                  color={learned ? '#fff' : colors.text}
-                />
-                <Text style={[styles.toggleText, { color: learned ? '#fff' : colors.text }]}>
-                  {learned ? 'Изучено' : 'Изучить'}
-                </Text>
+                <Ionicons name={view.icon} size={18} color={tint ? '#fff' : colors.text} />
+                <Text style={[styles.toggleText, { color: tint ? '#fff' : colors.text }]}>{view.label}</Text>
               </Pressable>
             ) : null,
         }}

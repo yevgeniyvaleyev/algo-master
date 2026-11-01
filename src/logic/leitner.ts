@@ -132,9 +132,26 @@ export function browse(session: Session, dir: 1 | -1): Session {
 
 /** Cards to review now: due ones of boxes 2–5 plus box 1 as it will be after a refill. */
 export function dueCount(deck: readonly DeckCard[], capacity: number, today: Date = new Date()): number {
+  const due = dueByBox(deck, capacity, today);
+  return due.waiting + due.boxes.reduce((sum, n) => sum + n, 0);
+}
+
+/**
+ * Cards to review per pile (same shape as `boxCounts`): all of box 1 (it rotates), the waiting cards that will refill
+ * it up to `capacity`, and the due cards of boxes 2–5. Sums to `dueCount`.
+ */
+export function dueByBox(
+  deck: readonly DeckCard[],
+  capacity: number,
+  today: Date = new Date(),
+): { waiting: number; boxes: number[] } {
   const key = dayKey(today);
-  const inBox1 = box1(deck).length;
-  return deck.filter((c) => isDue(c, key)).length + Math.max(inBox1, Math.min(capacity, inBox1 + waiting(deck).length));
+  const boxes: number[] = Array(MAX_BOX).fill(0);
+  for (const c of deck) {
+    if (c.box === 1 || (c.box != null && isDue(c, key))) boxes[Math.min(MAX_BOX, c.box) - 1]++;
+  }
+  const refill = Math.max(0, Math.min(capacity, boxes[0] + waiting(deck).length) - boxes[0]);
+  return { waiting: refill, boxes };
 }
 
 /** Waiting cards and cards per box (index 0 = box 1). */

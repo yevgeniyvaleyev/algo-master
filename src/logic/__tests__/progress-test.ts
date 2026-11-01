@@ -1,5 +1,5 @@
 import { dayKey, lastDays } from '../dates';
-import { computeStreak, expirationCutoff } from '../progress';
+import { algoStatus, computeStreak, expirationCutoff, nextStatus } from '../progress';
 
 const today = new Date(2026, 9, 11, 15, 0);
 
@@ -46,5 +46,19 @@ describe('expirationCutoff', () => {
 
   it('clamps negative days to zero', () => {
     expect(expirationCutoff(true, -3, 500)).toBe(500);
+  });
+});
+
+describe('algoStatus / nextStatus', () => {
+  it('prefers learned over in progress', () => {
+    expect(algoStatus({ learnedAt: null, inProgressAt: null })).toBe('none');
+    expect(algoStatus({ learnedAt: null, inProgressAt: 1 })).toBe('inProgress');
+    expect(algoStatus({ learnedAt: 2, inProgressAt: 1 })).toBe('learned');
+  });
+
+  it('cycles none → in progress → learned → none', () => {
+    expect(nextStatus('none')).toBe('inProgress');
+    expect(nextStatus('inProgress')).toBe('learned');
+    expect(nextStatus('learned')).toBe('none');
   });
 });
