@@ -2,6 +2,8 @@ import { isRunningInExpoGo } from 'expo';
 import { Platform } from 'react-native';
 
 import { getTodayCount } from '@/db/repo';
+import { cardsWord } from '@/logic/card-gate';
+import { loadCardDay } from '@/logic/day-budget';
 import { planReminders } from '@/logic/reminders';
 import { useSettings } from '@/store/settings';
 
@@ -62,21 +64,27 @@ async function reschedule(): Promise<void> {
   if (!(await Notifications.getPermissionsAsync()).granted) return;
 
   const now = new Date();
-  const learnedToday = await getTodayCount(now);
+  const [learnedToday, { cards }] = await Promise.all([getTodayCount(now), loadCardDay(now.getTime())]);
   const plan = planReminders(
     { startHour: s.reminderStartHour, endHour: s.reminderEndHour, intervalHours: s.reminderIntervalHours },
     s.dailyGoal,
     learnedToday,
     now,
     DAYS_AHEAD,
+    cards.left,
   );
+  const cardsText = (n: number) => (n > 0 ? ` Повтори ещё ${n} ${cardsWord(n)}.` : '');
   for (const r of plan) {
+    const algosDone = r.isToday && r.remaining <= 0;
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Дневная цель не выполнена',
-        body: r.isToday
-          ? `Изучено ${s.dailyGoal - r.remaining} из ${s.dailyGoal}. Осталось ${r.remaining} ${algosWord(r.remaining)}.`
-          : `Цель на сегодня — ${s.dailyGoal} ${algosWord(s.dailyGoal)}. Пора начинать!`,
+        title: algosDone ? 'Карточки на сегодня не повторены' : 'Дневная цель не выполнена',
+        body: algosDone
+          ? `Алгоритмы на сегодня изучены.${cardsText(r.cardsLeft)}`
+          : r.isToday
+            ? `Изучено ${s.dailyGoal - r.remaining} из ${s.dailyGoal}. Осталось ${r.remaining} ${algosWord(r.remaining)}.` +
+              cardsText(r.cardsLeft)
+            : `Цель на сегодня — ${s.dailyGoal} ${algosWord(s.dailyGoal)}. Пора начинать!`,
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date, channelId: CHANNEL_ID },
     });

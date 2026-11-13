@@ -6,6 +6,8 @@ import type { DayTimeline as Timeline, TimelineSegment } from '@/logic/budget';
 import { useColors } from '@/theme';
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+/** Flash-card groups: violet, distinct from the difficulty colors and the primary "fun" blue in both themes. */
+export const CARDS_COLOR = '#9C6ADE';
 
 const hhmm = (ms: number) => {
   const d = new Date(ms);
@@ -32,6 +34,8 @@ function hourMarks(start: number, end: number): { at: number; edge: boolean }[] 
 const MARK_LABEL_WIDTH = 40;
 const NOW_LABEL_WIDTH = 110;
 const BELL_SIZE = 13;
+/** Planned blocks stay visible even when short (a 2-card group is ~1% of the day). */
+const MIN_BLOCK_WIDTH = 5;
 
 const minutes = (ms: number) => `${Math.round(ms / 60_000)} мин.`;
 
@@ -72,6 +76,8 @@ export function DayTimeline({
         return colors.success;
       case 'algo':
         return colors.difficulty[s.difficulty];
+      case 'cards':
+        return CARDS_COLOR;
     }
   };
 
@@ -86,6 +92,7 @@ export function DayTimeline({
     if (s.kind === 'fun') add('fun', colors.primary, 'Развлечения', ms);
     if (s.kind === 'free') add('free', colors.border, 'Свободно', ms);
     if (s.kind === 'algo') add(s.difficulty, colors.difficulty[s.difficulty], DIFFICULTY_LABELS[s.difficulty], ms);
+    if (s.kind === 'cards') add('cards', CARDS_COLOR, 'Карточки', ms);
   }
 
   const status = ended
@@ -127,7 +134,11 @@ export function DayTimeline({
             style={[
               styles.segment,
               { left: pct(s.start), width: width(s), backgroundColor: fill(s) },
-              s.kind === 'algo' && { borderLeftWidth: 1, borderColor: colors.surface },
+              (s.kind === 'algo' || s.kind === 'cards') && {
+                borderLeftWidth: 1,
+                borderColor: colors.surface,
+                minWidth: MIN_BLOCK_WIDTH,
+              },
               s.kind === 'unlimited' && { opacity: 0.5 },
             ]}
           />

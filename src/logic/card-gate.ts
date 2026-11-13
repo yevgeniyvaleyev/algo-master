@@ -19,9 +19,12 @@ export function shouldGate({
   return enabled && deckSize > 0 && awayMs >= GATE_AWAY_MS;
 }
 
-/** True for deep links to an algorithm screen, e.g. `algomaster://algo/two-sum`. */
-export function isAlgoLink(url: string | null | undefined): boolean {
-  return url != null && /^[a-z][a-z0-9+.-]*:\/\/\/?algo\/[^/?#]+/i.test(url);
+/**
+ * True for the study alarm's deep links: an algorithm screen (`algomaster://algo/two-sum`) or the «Карточки» tab
+ * (`algomaster://cards`).
+ */
+export function isStudyLink(url: string | null | undefined): boolean {
+  return url != null && /^[a-z][a-z0-9+.-]*:\/\/\/?(algo\/[^/?#]+|cards\/?(?:[?#]|$))/i.test(url);
 }
 
 /** «ответь на 1 карточку / 2 карточки / 5 карточек». */

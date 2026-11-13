@@ -12,7 +12,7 @@ import { migrate } from '@/db/client';
 import { getCardDeck, runSeed } from '@/db/repo';
 import { runExpiration } from '@/logic/actions';
 import { BACKGROUND_SETTING_KEYS, syncBackground } from '@/logic/background';
-import { isAlgoLink, shouldGate } from '@/logic/card-gate';
+import { isStudyLink, shouldGate } from '@/logic/card-gate';
 import { ensureNotificationPermission } from '@/notifications/reminders';
 import { useCardGate } from '@/store/card-gate';
 import { useSettings } from '@/store/settings';
@@ -27,7 +27,7 @@ async function bootstrap() {
   await syncBackground();
 }
 
-/** When an algorithm link (alarm «Начать») last opened the app; the gate stays away right after one. */
+/** When a study link (alarm «Начать»: an algorithm or the cards) last opened the app; the gate stays away right after one. */
 let algoLinkAt = 0;
 const ALGO_LINK_GRACE_MS = 10_000;
 
@@ -50,9 +50,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     bootstrap()
-      // An alarm's «Начать» opens an algorithm to learn: no cards in the way.
+      // An alarm's «Начать» opens an algorithm to learn or the cards to review: no gate in the way.
       .then(async () => {
-        if (isAlgoLink(await Linking.getInitialURL())) algoLinkAt = Date.now();
+        if (isStudyLink(await Linking.getInitialURL())) algoLinkAt = Date.now();
         else await maybeGate(Infinity);
       })
       .finally(() => setReady(true));
@@ -70,7 +70,7 @@ export default function RootLayout() {
       void runExpiration().then(syncBackground);
     });
     const links = Linking.addEventListener('url', ({ url }) => {
-      if (!isAlgoLink(url)) return;
+      if (!isStudyLink(url)) return;
       algoLinkAt = Date.now();
       useCardGate.getState().clear();
     });

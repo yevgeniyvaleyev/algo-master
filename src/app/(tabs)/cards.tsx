@@ -4,8 +4,8 @@ import { useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BoxCounts, CardReview } from '@/components/CardReview';
-import { getCardDeck } from '@/db/repo';
 import { saveCardWrites } from '@/logic/actions';
+import { loadCardDay } from '@/logic/day-budget';
 import { formatDayMonth } from '@/logic/history';
 import { nextDueDay, startSession, type Session } from '@/logic/leitner';
 import { useSettings } from '@/store/settings';
@@ -32,9 +32,10 @@ export default function CardsScreen() {
         return;
       }
       let cancelled = false;
-      getCardDeck().then((deck) => {
+      loadCardDay().then(({ deck, cards }) => {
         if (cancelled) return;
-        const started = startSession(deck, { capacity });
+        // Nothing pending but the daily minimum still open: the cards closest to their due day come early.
+        const started = startSession(deck, { capacity, ahead: cards.ahead });
         setSession(started.session);
         setBuild((b) => b + 1);
         void saveCardWrites(started.writes);
@@ -85,6 +86,7 @@ export default function CardsScreen() {
         onChange={setSession}
         capacity={capacity}
         factor={factor}
+        caption={session.ahead ? 'Повторение заранее' : undefined}
         browsable
         onOpen={(slug) => {
           resumeOnFocus.current = true;

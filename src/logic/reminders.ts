@@ -13,6 +13,8 @@ export interface PlannedReminder {
   date: Date;
   /** Algorithms still to learn on that day at scheduling time. */
   remaining: number;
+  /** Flash cards still to review today (daily card minimum); 0 on other days. */
+  cardsLeft: number;
   isToday: boolean;
 }
 
@@ -25,9 +27,9 @@ export function reminderHours({ startHour, endHour, intervalHours }: ReminderWin
 }
 
 /**
- * Reminders for today (only those still ahead, and only if the goal isn't met yet) and for the following days,
- * where nothing is learned yet. Everything is rescheduled whenever progress or settings change, so the counts
- * baked into today's texts stay accurate.
+ * Reminders for today (only those still ahead, and only while the goal or the card minimum isn't met) and for the
+ * following days, where nothing is learned yet. Everything is rescheduled whenever progress or settings change, so
+ * the counts baked into today's texts stay accurate.
  */
 export function planReminders(
   window: ReminderWindow,
@@ -35,17 +37,19 @@ export function planReminders(
   learnedToday: number,
   now: Date,
   daysAhead: number,
+  cardsLeftToday = 0,
 ): PlannedReminder[] {
   const hours = reminderHours(window);
   const plan: PlannedReminder[] = [];
   for (let d = 0; d < daysAhead; d++) {
     const isToday = d === 0;
-    const remaining = isToday ? goal - learnedToday : goal;
-    if (remaining <= 0) continue;
+    const remaining = Math.max(0, isToday ? goal - learnedToday : goal);
+    const cardsLeft = isToday ? Math.max(0, cardsLeftToday) : 0;
+    if (remaining <= 0 && cardsLeft <= 0) continue;
     const day = addDays(logicalDay(now), d);
     for (const h of hours) {
       const date = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, 0, 0, 0);
-      if (date.getTime() > now.getTime()) plan.push({ date, remaining, isToday });
+      if (date.getTime() > now.getTime()) plan.push({ date, remaining, cardsLeft, isToday });
     }
   }
   return plan;

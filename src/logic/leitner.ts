@@ -24,12 +24,16 @@ export interface DeckCard {
   reviewedAt: number | null;
 }
 
-/** A `cards` row to upsert; `refreshMark` also resets the learned mark (a ✓ answer). */
+/**
+ * A `cards` row to upsert; `refreshMark` also resets the learned mark (a ✓ answer). `review` is set for answers (✓/✗,
+ * logged in `card_reviews` for the daily card minimum); `ahead` when the card was pulled ahead of its due day.
+ */
 export interface CardWrite {
   slug: string;
   box: number;
   dueDay: string;
   refreshMark: boolean;
+  review?: { known: boolean; ahead: boolean };
 }
 
 export interface Session {
@@ -39,6 +43,8 @@ export interface Session {
   queue: string[];
   /** Answers given in this session (a key for resetting the card view). */
   step: number;
+  /** Cards pulled ahead of their due day (see `cardDay`); their answers are logged as such. */
+  ahead?: string[];
 }
 
 export interface SessionOptions {
@@ -73,10 +79,18 @@ function refill(deck: DeckCard[], capacity: number, today: string, now: number) 
   return { moved: moved.map((c) => c.slug), writes };
 }
 
-/** Fills box 1 and orders the queue: due cards of boxes 2–5 (weakest, most overdue first), then box 1's rotation. */
+/**
+ * Fills box 1 and orders the queue: due cards of boxes 2–5 (weakest, most overdue first), then box 1's rotation.
+ * When nothing is due, the `ahead` cards (pulled ahead of their due day) are reviewed instead.
+ */
 export function startSession(
   source: readonly DeckCard[],
-  { capacity, today = new Date(), now = Date.now() }: Omit<SessionOptions, 'factor'>,
+  {
+    capacity,
+    today = new Date(),
+    now = Date.now(),
+    ahead = [],
+  }: Omit<SessionOptions, 'factor'> & { ahead?: readonly string[] },
 ): { session: Session; writes: CardWrite[] } {
   const key = dayKey(today);
   const deck = source.map((c) => ({ ...c }));
@@ -85,7 +99,12 @@ export function startSession(
     .filter((c) => isDue(c, key))
     .sort((a, b) => a.box! - b.box! || (a.dueDay ?? '').localeCompare(b.dueDay ?? ''));
   const rotation = box1(deck).sort((a, b) => (a.reviewedAt ?? 0) - (b.reviewedAt ?? 0) || byWaitTime(a, b));
-  return { session: { deck, queue: [...due, ...rotation].map((c) => c.slug), step: 0 }, writes };
+  const queue = [...due, ...rotation].map((c) => c.slug);
+  if (queue.length === 0 && ahead.length > 0) {
+    const known = ahead.filter((slug) => deck.some((c) => c.slug === slug));
+    return { session: { deck, queue: known, step: 0, ahead: known }, writes };
+  }
+  return { session: { deck, queue, step: 0 }, writes };
 }
 
 /** Answers the current card (queue[0]). */
@@ -101,13 +120,14 @@ export function answer(
 
   const key = dayKey(today);
   const from = card.box ?? 1;
+  const review = { known, ahead: session.ahead?.includes(slug) ?? false };
   let queue = rest;
   let writes: CardWrite[];
   if (known) {
     const box = Math.min(MAX_BOX, from + 1);
     const dueDay = dayKey(addDays(today, boxInterval(box, factor)));
     Object.assign(card, { box, dueDay, reviewedAt: now });
-    writes = [{ slug, box, dueDay, refreshMark: true }];
+    writes = [{ slug, box, dueDay, refreshMark: true, review }];
     if (from === 1) {
       const filled = refill(deck, capacity, key, now);
       queue = [...queue, ...filled.moved];
@@ -116,7 +136,7 @@ export function answer(
   } else {
     // Into (or back to the end of) the box-1 rotation; over capacity is fine, refills wait until there's room.
     Object.assign(card, { box: 1, dueDay: key, reviewedAt: now });
-    writes = [{ slug, box: 1, dueDay: key, refreshMark: false }];
+    writes = [{ slug, box: 1, dueDay: key, refreshMark: false, review }];
     queue = [...queue, slug];
   }
   return { session: { deck, queue, step: session.step + 1 }, writes };
@@ -152,6 +172,28 @@ export function dueByBox(
   }
   const refill = Math.max(0, Math.min(capacity, boxes[0] + waiting(deck).length) - boxes[0]);
   return { waiting: refill, boxes };
+}
+
+/**
+ * Slugs of the cards to review today (the set `dueByBox` counts): box 1, the waiting cards that will refill it up to
+ * `capacity`, and the due cards of boxes 2–5.
+ */
+export function pendingSlugs(deck: readonly DeckCard[], capacity: number, today: Date = new Date()): string[] {
+  const key = dayKey(today);
+  const inBox = deck.filter((c) => c.box === 1 || isDue(c, key)).map((c) => c.slug);
+  const free = Math.max(0, capacity - box1(deck).length);
+  return [...inBox, ...waiting(deck).slice(0, free).map((c) => c.slug)];
+}
+
+/** The `count` cards of boxes 2–5 due next (not yet due today): soonest first, then lower boxes. */
+export function closestToDue(deck: readonly DeckCard[], count: number, today: Date = new Date()): string[] {
+  if (count <= 0) return [];
+  const key = dayKey(today);
+  return deck
+    .filter((c) => c.box != null && c.box >= 2 && !isDue(c, key))
+    .sort((a, b) => (a.dueDay ?? '').localeCompare(b.dueDay ?? '') || a.box! - b.box! || byWaitTime(a, b))
+    .slice(0, count)
+    .map((c) => c.slug);
 }
 
 /** Waiting cards and cards per box (index 0 = box 1). */

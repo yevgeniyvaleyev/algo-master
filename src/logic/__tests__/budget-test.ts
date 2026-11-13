@@ -1,4 +1,5 @@
 import { algoCostMs, atHour, availableMs, dayTimeline, grantedMs, reserveMs, type UpcomingAlgo } from '../budget';
+import { planItems, type DayItem } from '../card-day';
 
 const MIN = 60_000;
 const day = new Date(2026, 9, 11).getTime();
@@ -71,35 +72,43 @@ describe('grantedMs', () => {
 
 describe('availableMs', () => {
   it('is unlimited once the goal is met', () => {
-    expect(availableMs(at(23), 3, 3, 0, 0, deadline, 0)).toBeNull();
+    expect(availableMs(at(23), true, 0, 0, deadline, 0)).toBeNull();
   });
 
   it('subtracts usage from the granted balance', () => {
-    expect(availableMs(at(10), 1, 3, 30 * MIN, 10 * MIN, deadline, 60 * MIN)).toBe(20 * MIN);
+    expect(availableMs(at(10), false, 30 * MIN, 10 * MIN, deadline, 60 * MIN)).toBe(20 * MIN);
   });
 
   it('shrinks unused morning grants as the deadline approaches', () => {
     // 30 min granted, untouched; at 20:40 only 80 - 60 = 20 min of slack is left.
-    expect(availableMs(at(20, 40), 1, 3, 30 * MIN, 0, deadline, 60 * MIN)).toBe(20 * MIN);
-    expect(availableMs(at(21, 30), 1, 3, 30 * MIN, 0, deadline, 60 * MIN)).toBe(0);
+    expect(availableMs(at(20, 40), false, 30 * MIN, 0, deadline, 60 * MIN)).toBe(20 * MIN);
+    expect(availableMs(at(21, 30), false, 30 * MIN, 0, deadline, 60 * MIN)).toBe(0);
   });
 
   it('is zero after the deadline with the goal unmet', () => {
-    expect(availableMs(at(22, 30), 2, 3, 30 * MIN, 0, deadline, 30 * MIN)).toBe(0);
+    expect(availableMs(at(22, 30), false, 30 * MIN, 0, deadline, 30 * MIN)).toBe(0);
+  });
+});
+
+describe('grantedMs with cards', () => {
+  it('reserves the remaining card time at every event', () => {
+    // 20:20: 100 min left, 60 reserved for algorithms + 10 for cards, 30 slack / 3 shares.
+    expect(grantedMs(learnedEasy(at(20, 20)), 3, deadline, easy(2), 30 * MIN, 10 * MIN)).toBe(10 * MIN);
   });
 });
 
 describe('dayTimeline', () => {
-  const base = { start: at(9), end: deadline, goal: 3 };
+  const base = { start: at(9), end: deadline, goalMet: false };
+  const algos = (n: number): DayItem[] => easy(n).map((a) => ({ kind: 'algo', ...a }));
 
   it('places remaining algorithms by the even plan, with fun and free time around them', () => {
     const t = dayTimeline({
       ...base,
       now: at(15),
       learned: [{ ts: at(10), difficulty: 'easy' }],
-      upcoming: [
-        { difficulty: 'medium', costMs: 45 * MIN },
-        { difficulty: 'hard', costMs: 60 * MIN },
+      items: [
+        { kind: 'algo', difficulty: 'medium', costMs: 45 * MIN },
+        { kind: 'algo', difficulty: 'hard', costMs: 60 * MIN },
       ],
       available: 20 * MIN,
     });
@@ -121,7 +130,7 @@ describe('dayTimeline', () => {
   });
 
   it('cuts blocks at the deadline and reports the shortage when time is too short', () => {
-    const t = dayTimeline({ ...base, now: at(21, 30), learned: [], upcoming: easy(3), available: 0 });
+    const t = dayTimeline({ ...base, now: at(21, 30), learned: [], items: algos(3), available: 0 });
     expect(t.shortageMs).toBe(60 * MIN);
     expect(t.segments.filter((s) => s.kind === 'algo')).toEqual([
       { kind: 'algo', start: at(21, 30), end: deadline, difficulty: 'easy' },
@@ -131,20 +140,32 @@ describe('dayTimeline', () => {
 
   it('shows the rest of the day as unlimited once the goal is met', () => {
     const learned = [at(9), at(10), at(11)].map((ts) => ({ ts, difficulty: 'easy' as const }));
-    const t = dayTimeline({ ...base, now: at(12), learned, upcoming: easy(3), available: null });
+    const t = dayTimeline({ ...base, goalMet: true, now: at(12), learned, items: [], available: null });
     expect(t.segments.at(-1)).toEqual({ kind: 'unlimited', start: at(12), end: deadline });
     expect(t.latestStart).toBeNull();
   });
 
+  it('plans card groups between the algorithms', () => {
+    const items = planItems(easy(2), 3, 2 * MIN);
+    const t = dayTimeline({ ...base, now: at(12), learned: [], items, available: 0 });
+    expect(t.segments.filter((s) => s.kind !== 'free' && s.kind !== 'past').map((s) => s.kind)).toEqual([
+      'algo',
+      'cards',
+      'algo',
+    ]);
+    expect(t.segments.find((s) => s.kind === 'cards')).toMatchObject({ count: 3 });
+    expect(t.latestStart).toBe(deadline - 66 * MIN);
+  });
+
   it('marks the day as ended after the deadline with the goal unmet', () => {
-    const t = dayTimeline({ ...base, now: at(23), learned: [], upcoming: easy(3), available: 0 });
+    const t = dayTimeline({ ...base, now: at(23), learned: [], items: algos(3), available: 0 });
     expect(t.ended).toBe(true);
     expect(t.now).toBe(deadline);
     expect(t.segments).toEqual([{ kind: 'past', start: at(9), end: deadline }]);
   });
 
   it('clamps "now" to the start before the day begins', () => {
-    const t = dayTimeline({ ...base, now: at(7), learned: [], upcoming: easy(3), available: 0 });
+    const t = dayTimeline({ ...base, now: at(7), learned: [], items: algos(3), available: 0 });
     expect(t.now).toBe(at(9));
     expect(t.segments[0].kind).toBe('free');
     expect(t.nextAlarm).toBe(at(10, 55));

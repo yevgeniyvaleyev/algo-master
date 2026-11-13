@@ -1,5 +1,6 @@
 import type { Difficulty } from '@/content/types';
 
+import type { DayItem } from './card-day';
 import { logicalDay } from './dates';
 import { nextAlarmAt, planDay, type PlannedBlock } from './study-plan';
 
@@ -15,6 +16,7 @@ export type DifficultyFactors = Record<Difficulty, number>;
 export interface UpcomingAlgo {
   difficulty: Difficulty;
   costMs: number;
+  title?: string;
 }
 
 export interface LearnedToday {
@@ -56,37 +58,40 @@ export function grantedMs(
   deadline: number,
   upcoming: readonly UpcomingAlgo[],
   maxGrantMs: number,
+  /** Time also reserved at every event (today's remaining flash cards). */
+  extraReserveMs = 0,
 ): number {
   let total = 0;
   learned.forEach((event, i) => {
     const left = goal - (i + 1);
     if (left <= 0) return;
     const later = learned.slice(i + 1, i + 1 + left);
-    const reserve = later.reduce((sum, l) => sum + l.costMs, 0) + reserveMs(left - later.length, upcoming);
+    const reserve =
+      later.reduce((sum, l) => sum + l.costMs, 0) + reserveMs(left - later.length, upcoming) + extraReserveMs;
     const slack = slackMs(event.ts, deadline, reserve);
     total += Math.min(maxGrantMs, Math.max(0, slack / (left + 1)));
   });
   return Math.floor(total);
 }
 
-/** Spendable entertainment time right now; null = unlimited (goal met). */
+/** Spendable entertainment time right now; null = unlimited (algorithm goal and card minimum met). */
 export function availableMs(
   now: number,
-  learned: number,
-  goal: number,
+  goalMet: boolean,
   granted: number,
   used: number,
   deadline: number,
   reserve: number,
 ): number | null {
-  if (learned >= goal) return null;
+  if (goalMet) return null;
   return Math.max(0, Math.min(granted - used, slackMs(now, deadline, reserve)));
 }
 
 export type TimelineSegment =
   | { kind: 'past'; start: number; end: number }
   | { kind: 'fun' | 'free' | 'unlimited'; start: number; end: number }
-  | { kind: 'algo'; start: number; end: number; difficulty: Difficulty };
+  | { kind: 'algo'; start: number; end: number; difficulty: Difficulty }
+  | { kind: 'cards'; start: number; end: number; count: number };
 
 export interface DayTimeline {
   start: number;
@@ -102,34 +107,35 @@ export interface DayTimeline {
   shortageMs: number;
   /** The deadline has passed and the goal isn't met. */
   ended: boolean;
-  /** Evenly spread plan for the remaining algorithms (see study-plan.ts), in suggestion order. */
-  plan: (PlannedBlock & { difficulty: Difficulty })[];
+  /** Evenly spread plan for the remaining items (see study-plan.ts), in order. */
+  plan: (PlannedBlock & { item: DayItem })[];
   /** When the next study alarm rings; null when nothing is planned. */
   nextAlarm: number | null;
 }
 
 /**
- * Lays out the learning day: the past, then the remaining algorithms where the study plan puts them (evenly spread,
- * see planDay), the entertainment available now before the first one, and free time in the gaps. Blocks that run
- * past the deadline are cut off there; `shortageMs` says how much learning time doesn't fit.
+ * Lays out the learning day: the past, then the remaining items (algorithms and flash-card groups, see planItems)
+ * where the study plan puts them (evenly spread, see planDay), the entertainment available now before the first one,
+ * and free time in the gaps. Blocks that run past the deadline are cut off there; `shortageMs` says how much
+ * learning time doesn't fit.
  */
 export function dayTimeline(input: {
   now: number;
   start: number;
   end: number;
   learned: readonly LearnedToday[];
-  goal: number;
-  upcoming: readonly UpcomingAlgo[];
+  /** Everything still to do today, in plan order. */
+  items: readonly DayItem[];
+  goalMet: boolean;
   available: number | null;
 }): DayTimeline {
-  const { start, end, goal, upcoming, available } = input;
+  const { start, end, items: ahead, available } = input;
   const now = Math.min(end, Math.max(start, input.now));
-  const left = goal - input.learned.length;
   const segments: TimelineSegment[] = [];
   if (now > start) segments.push({ kind: 'past', start, end: now });
   const ticks = input.learned.filter((l) => l.ts >= start && l.ts <= end);
 
-  if (left <= 0) {
+  if (input.goalMet || ahead.length === 0) {
     if (now < end) segments.push({ kind: 'unlimited', start: now, end });
     return {
       start,
@@ -145,14 +151,13 @@ export function dayTimeline(input: {
     };
   }
 
-  const ahead = upcoming.slice(0, left);
-  const reserve = reserveMs(left, upcoming);
+  const reserve = ahead.reduce((sum, i) => sum + i.costMs, 0);
   const ended = input.now >= end;
   const shortageMs = ended ? 0 : Math.max(0, reserve - Math.max(0, end - now));
   const latestStart = end - reserve;
   const plan = planDay({ now: input.now, start, deadline: end, items: ahead }).map((b, i) => ({
     ...b,
-    difficulty: ahead[i].difficulty,
+    item: ahead[i],
   }));
 
   if (!ended) {
@@ -163,7 +168,11 @@ export function dayTimeline(input: {
     let t = funEnd > now ? funEnd : now;
     for (const b of blocks) {
       if (b.start > t) segments.push({ kind: 'free', start: t, end: b.start });
-      segments.push({ kind: 'algo', start: b.start, end: b.end, difficulty: b.difficulty });
+      segments.push(
+        b.item.kind === 'algo'
+          ? { kind: 'algo', start: b.start, end: b.end, difficulty: b.item.difficulty }
+          : { kind: 'cards', start: b.start, end: b.end, count: b.item.count },
+      );
       t = b.end;
     }
     if (t < end) segments.push({ kind: 'free', start: t, end });

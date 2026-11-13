@@ -20,6 +20,9 @@ class BlockActivity : Activity() {
     val dp = resources.displayMetrics.density
     val learned = BlockerStore.learnedToday(this)
     val goal = BlockerStore.goal(this)
+    val cardsLeft = BlockerStore.cardsLeft(this)
+    val cardsReviewed = BlockerStore.cardsReviewed(this)
+    val algosDone = learned >= goal
     val deadline = BlockerStore.deadlineMs(this)
     val deadlineText = if (deadline > 0) SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(deadline)) else null
     val reason = when {
@@ -46,11 +49,12 @@ class BlockActivity : Activity() {
       setBackgroundColor(Color.parseColor("#0F1115"))
       val pad = (32 * dp).toInt()
       setPadding(pad, pad, pad, pad)
-      addView(label("Сначала изучи алгоритм", 26f, Color.WHITE, bold = true))
+      addView(label(if (algosDone) "Сначала повтори карточки" else "Сначала изучи алгоритм", 26f, Color.WHITE, bold = true))
       addView(
         label(
           "Изучено сегодня: $learned из $goal." +
-            (deadlineText?.let { " Учебный день до $it — осталось изучить ${goal - learned}." } ?: "") +
+            (if (cardsLeft > 0) " Карточки: $cardsReviewed из ${cardsReviewed + cardsLeft}." else "") +
+            (deadlineText?.takeIf { !algosDone }?.let { " Учебный день до $it — осталось изучить ${goal - learned}." } ?: "") +
             "\n$reason Выполненная цель снимает блокировку до конца дня.",
           16f,
           Color.parseColor("#B0B6C3"),

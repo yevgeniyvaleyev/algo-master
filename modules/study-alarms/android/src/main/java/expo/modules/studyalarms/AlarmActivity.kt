@@ -36,11 +36,10 @@ class AlarmActivity : Activity() {
     }
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-    val slug = intent.getStringExtra(AlarmScheduler.EXTRA_SLUG) ?: ""
-    val title = intent.getStringExtra(AlarmScheduler.EXTRA_TITLE) ?: ""
-    val difficulty = intent.getStringExtra(AlarmScheduler.EXTRA_DIFFICULTY) ?: "easy"
-    val minutes = intent.getLongExtra(AlarmScheduler.EXTRA_COST, 0L) / 60_000L
+    val item = AlarmScheduler.itemFrom(intent)
+    val (_, title, detail) = AlarmNotification.texts(item)
     val config = AlarmStore.read(this)
+    val cardsLeft = AlarmStore.cardsLeftToday(config)
     val deadline = StudyPlan.atHour(System.currentTimeMillis(), 0, config.endHour)
     val deadlineText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(deadline))
     val dp = resources.displayMetrics.density
@@ -61,19 +60,21 @@ class AlarmActivity : Activity() {
       setBackgroundColor(Color.parseColor("#0F1115"))
       val pad = (32 * dp).toInt()
       setPadding(pad, pad, pad, pad)
-      addView(label("⏰ Время учить", 18f, Color.parseColor("#748FFC"), bold = true))
+      addView(label(if (item.isCards) "⏰ Время повторить" else "⏰ Время учить", 18f, Color.parseColor("#748FFC"), bold = true))
       addView(label(title, 28f, Color.WHITE, bold = true))
-      addView(label("${AlarmNotification.difficultyLabel(difficulty)} · ~$minutes мин.", 16f, Color.parseColor("#B0B6C3")))
+      addView(label(detail, 16f, Color.parseColor("#B0B6C3")))
       addView(
         label(
-          "Изучено сегодня ${AlarmStore.learnedToday(config)} из ${config.goal} · учебный день до $deadlineText",
+          "Изучено сегодня ${AlarmStore.learnedToday(config)} из ${config.goal}" +
+            (if (cardsLeft > 0) " · карточек осталось $cardsLeft" else "") +
+            " · учебный день до $deadlineText",
           14f,
           Color.parseColor("#9AA0A6"),
         ),
       )
       addView(Button(this@AlarmActivity).apply {
         text = "Начать"
-        setOnClickListener { start(slug) }
+        setOnClickListener { start(item) }
       })
       addView(Button(this@AlarmActivity).apply {
         text = "Позже"
@@ -84,9 +85,9 @@ class AlarmActivity : Activity() {
     handler.postDelayed({ dismiss() }, 60_000L)
   }
 
-  private fun start(slug: String) {
+  private fun start(item: AlarmStore.Item) {
     AlarmNotification.cancel(this)
-    val open = { startActivity(AlarmNotification.openIntent(this, slug)) }
+    val open = { startActivity(AlarmNotification.openIntent(this, item)) }
     // Over the lock screen the app can only open after unlocking.
     val keyguard = getSystemService(KeyguardManager::class.java)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && keyguard.isKeyguardLocked) {

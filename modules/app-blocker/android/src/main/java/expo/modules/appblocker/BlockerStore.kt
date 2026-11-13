@@ -32,6 +32,9 @@ object BlockerStore {
       .putLong("reserveMs", config.reserveMs.toLong())
       .putString("day", config.day)
       .putInt("dayStartHour", config.dayStartHour)
+      .putInt("cardsLeft", config.cardsLeft)
+      .putInt("cardGoal", config.cardGoal)
+      .putInt("cardsReviewed", config.cardsReviewed)
       .apply()
   }
 
@@ -48,7 +51,17 @@ object BlockerStore {
     return if (p.getString("day", "") == today(ctx)) p.getInt("learned", 0) else 0
   }
 
-  fun goalMet(ctx: Context): Boolean = learnedToday(ctx) >= goal(ctx)
+  /** Flash cards still to review today (daily card minimum); on a new day the whole card goal. */
+  fun cardsLeft(ctx: Context): Int {
+    val p = prefs(ctx)
+    return if (isToday(ctx)) p.getInt("cardsLeft", 0) else p.getInt("cardGoal", 0)
+  }
+
+  /** Flash cards reviewed today; 0 when the config is from an earlier day. */
+  fun cardsReviewed(ctx: Context): Int = if (isToday(ctx)) prefs(ctx).getInt("cardsReviewed", 0) else 0
+
+  /** Algorithm goal and card minimum both met: nothing is blocked for the rest of the day. */
+  fun goalMet(ctx: Context): Boolean = learnedToday(ctx) >= goal(ctx) && cardsLeft(ctx) == 0
 
   private fun isToday(ctx: Context): Boolean = prefs(ctx).getString("day", "") == today(ctx)
 

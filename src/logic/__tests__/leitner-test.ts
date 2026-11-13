@@ -55,7 +55,7 @@ describe('answer', () => {
     const start = startSession(waitingCards(5), opts).session;
     const { session, writes } = answer(start, true, opts);
     expect(writes).toEqual([
-      { slug: 'w4', box: 2, dueDay: '2026-10-18', refreshMark: true },
+      { slug: 'w4', box: 2, dueDay: '2026-10-18', refreshMark: true, review: { known: true, ahead: false } },
       { slug: 'w1', box: 1, dueDay: '2026-10-15', refreshMark: false },
     ]);
     expect(session.queue).toEqual(['w3', 'w2', 'w1']);
@@ -66,7 +66,9 @@ describe('answer', () => {
     const start = startSession(waitingCards(3), opts).session;
     const { session, writes } = answer(start, false, opts);
     expect(session.queue).toEqual(['w1', 'w0', 'w2']);
-    expect(writes).toEqual([{ slug: 'w2', box: 1, dueDay: '2026-10-15', refreshMark: false }]);
+    expect(writes).toEqual([
+      { slug: 'w2', box: 1, dueDay: '2026-10-15', refreshMark: false, review: { known: false, ahead: false } },
+    ]);
   });
 
   it('drops an unknown higher card into the rotation without a refill over capacity', () => {
@@ -86,9 +88,10 @@ describe('answer', () => {
     let { session } = startSession(deck, opts);
     let writes;
     ({ session, writes } = answer(session, true, { ...opts, factor: 2 }));
-    expect(writes).toEqual([{ slug: 'b2', box: 3, dueDay: '2026-10-29', refreshMark: true }]);
+    const review = { known: true, ahead: false };
+    expect(writes).toEqual([{ slug: 'b2', box: 3, dueDay: '2026-10-29', refreshMark: true, review }]);
     ({ session, writes } = answer(session, true, opts));
-    expect(writes).toEqual([{ slug: 'b5', box: 5, dueDay: '2026-11-14', refreshMark: true }]);
+    expect(writes).toEqual([{ slug: 'b5', box: 5, dueDay: '2026-11-14', refreshMark: true, review }]);
     expect(session.queue).toEqual([]);
   });
 });

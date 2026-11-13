@@ -27,3 +27,9 @@ it('does not schedule a reminder for the current exact minute', () => {
   const plan = planReminders(window, 3, 0, at(9), 1);
   expect(plan[0].date.getHours()).toBe(10);
 });
+
+it('keeps reminding today while cards are left after the algorithms are done', () => {
+  const plan = planReminders(window, 3, 3, at(20, 30), 2, 4);
+  expect(plan.filter((r) => r.isToday).map((r) => [r.date.getHours(), r.remaining, r.cardsLeft])).toEqual([[21, 0, 4]]);
+  expect(plan.filter((r) => !r.isToday).every((r) => r.cardsLeft === 0 && r.remaining === 3)).toBe(true);
+});

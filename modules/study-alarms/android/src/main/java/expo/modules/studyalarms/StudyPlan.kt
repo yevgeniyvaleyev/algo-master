@@ -35,6 +35,32 @@ object StudyPlan {
     }
   }
 
+  /**
+   * Mirror of planItems in src/logic/card-day.ts: the day's cards split into floor(cards / MIN_CARD_GROUP) groups (at
+   * least one, larger first), groups and algorithms each centred in their own equal share of the sequence (cards first
+   * on a tie), e.g. 5 cards + 3 algorithms = [A, 3 cards, B, 2 cards, C].
+   */
+  fun planItems(algos: List<AlarmStore.Item>, cards: Int, cardCostMs: Long): List<AlarmStore.Item> {
+    val groups = if (cards <= 0) 0 else maxOf(1, cards / MIN_CARD_GROUP)
+    val n = algos.size
+    val items = mutableListOf<AlarmStore.Item>()
+    var g = 0
+    var a = 0
+    while (g < groups || a < n) {
+      if (g < groups && (a >= n || (2 * g + 1) * n <= (2 * a + 1) * groups)) {
+        val count = cards / groups + if (g < cards % groups) 1 else 0
+        items.add(AlarmStore.Item.cards(count, count * cardCostMs))
+        g++
+      } else {
+        items.add(algos[a])
+        a++
+      }
+    }
+    return items
+  }
+
+  const val MIN_CARD_GROUP = 2
+
   fun nextAlarmAt(plan: List<Block>, now: Long): Long? =
     plan.firstOrNull()?.let { maxOf(it.start, now + MIN_ALARM_GAP_MS) }
 

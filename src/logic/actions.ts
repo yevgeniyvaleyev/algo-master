@@ -3,6 +3,7 @@ import { useDataVersion } from '@/store/data-version';
 import { useSettings } from '@/store/settings';
 
 import { syncBackground } from './background';
+import type { CardWrite } from './leitner';
 import { expirationCutoff, type AlgoStatus } from './progress';
 
 const bump = () => useDataVersion.getState().bump();
@@ -26,7 +27,15 @@ export const setLearnedMany = mutation(async (changes: { slug: string; learned: 
   for (const c of changes) await repo.setLearned(c.slug, c.learned);
   void syncBackground();
 });
-export const saveCardWrites = mutation(repo.saveCardWrites);
+/** Card answers change the daily card minimum; reviews come in quick bursts, so the background sync waits a bit. */
+const CARD_SYNC_DELAY_MS = 2_000;
+let cardSync: ReturnType<typeof setTimeout> | undefined;
+export const saveCardWrites = mutation(async (writes: readonly CardWrite[]) => {
+  await repo.saveCardWrites(writes);
+  if (!writes.some((w) => w.review)) return;
+  clearTimeout(cardSync);
+  cardSync = setTimeout(() => void syncBackground(), CARD_SYNC_DELAY_MS);
+});
 export const createTopic = mutation(repo.createTopic);
 export const renameTopic = mutation(repo.renameTopic);
 export const deleteTopic = mutation(repo.deleteTopic);

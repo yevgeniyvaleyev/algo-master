@@ -19,5 +19,8 @@ export async function syncBlocker(): Promise<void> {
     reserveMs: b.reserve,
     day: dayKey(new Date(b.now)),
     dayStartHour: s.dayStartHour,
+    cardsLeft: b.cards.left,
+    cardGoal: b.cardGoalTomorrow,
+    cardsReviewed: b.cards.reviewed,
   });
 }

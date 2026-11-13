@@ -16,6 +16,28 @@ object AlarmScheduler {
   const val EXTRA_TITLE = "title"
   const val EXTRA_DIFFICULTY = "difficulty"
   const val EXTRA_COST = "costMs"
+  const val EXTRA_KIND = "kind"
+  const val EXTRA_COUNT = "count"
+
+  /** Reads the planned block an alarm intent carries (see alarmIntent / AlarmNotification.show). */
+  fun itemFrom(intent: Intent) =
+    AlarmStore.Item(
+      slug = intent.getStringExtra(EXTRA_SLUG) ?: "",
+      title = intent.getStringExtra(EXTRA_TITLE) ?: "",
+      difficulty = intent.getStringExtra(EXTRA_DIFFICULTY) ?: "easy",
+      costMs = intent.getLongExtra(EXTRA_COST, 0L),
+      kind = intent.getStringExtra(EXTRA_KIND) ?: AlarmStore.Item.KIND_ALGO,
+      count = intent.getIntExtra(EXTRA_COUNT, 0),
+    )
+
+  /** Adds the planned block to an alarm intent. */
+  fun putItem(intent: Intent, item: AlarmStore.Item): Intent =
+    intent.putExtra(EXTRA_SLUG, item.slug)
+      .putExtra(EXTRA_TITLE, item.title)
+      .putExtra(EXTRA_DIFFICULTY, item.difficulty)
+      .putExtra(EXTRA_COST, item.costMs)
+      .putExtra(EXTRA_KIND, item.kind)
+      .putExtra(EXTRA_COUNT, item.count)
 
   data class Next(val at: Long, val item: AlarmStore.Item)
 
@@ -25,7 +47,9 @@ object AlarmScheduler {
     for (dayOffset in 0..1) {
       // Tomorrow starts from scratch; today's learned algorithms are no longer in `upcoming`.
       val learned = if (dayOffset == 0) AlarmStore.learnedToday(config) else 0
-      val items = config.upcoming.take(maxOf(0, config.goal - learned))
+      val cards = if (dayOffset == 0) AlarmStore.cardsLeftToday(config) else config.cardGoal
+      val algos = config.upcoming.take(maxOf(0, config.goal - learned))
+      val items = StudyPlan.planItems(algos, cards, config.cardCostMs)
       if (items.isEmpty()) continue
       // Hours of the app's day (startHour ≥ the day start hour, so they never fall before the day begins).
       val start = StudyPlan.atHour(config.logical(now), dayOffset, config.startHour)
@@ -67,12 +91,7 @@ object AlarmScheduler {
 
   private fun alarmIntent(ctx: Context, requestCode: Int, item: AlarmStore.Item?): PendingIntent {
     val intent = Intent(ctx, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_RING)
-    if (item != null) {
-      intent.putExtra(EXTRA_SLUG, item.slug)
-        .putExtra(EXTRA_TITLE, item.title)
-        .putExtra(EXTRA_DIFFICULTY, item.difficulty)
-        .putExtra(EXTRA_COST, item.costMs)
-    }
+    if (item != null) putItem(intent, item)
     return PendingIntent.getBroadcast(
       ctx,
       requestCode,

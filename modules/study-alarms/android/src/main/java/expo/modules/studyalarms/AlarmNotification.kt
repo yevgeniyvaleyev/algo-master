@@ -30,15 +30,29 @@ object AlarmNotification {
       else -> "Easy"
     }
 
-  /** Opens the algorithm's screen (expo-router handles algomaster://algo/<slug>), or just the app. */
-  fun openIntent(ctx: Context, slug: String): Intent {
+  /**
+   * Opens the algorithm's screen (expo-router handles algomaster://algo/<slug>), the «Карточки» tab for a card group
+   * (algomaster://cards), or just the app.
+   */
+  fun openIntent(ctx: Context, item: AlarmStore.Item): Intent {
+    val path = if (item.isCards) "cards" else if (item.slug.isNotEmpty()) "algo/${item.slug}" else null
     val intent =
-      if (slug.isNotEmpty()) {
-        Intent(Intent.ACTION_VIEW, Uri.parse("algomaster://algo/$slug")).setPackage(ctx.packageName)
+      if (path != null) {
+        Intent(Intent.ACTION_VIEW, Uri.parse("algomaster://$path")).setPackage(ctx.packageName)
       } else {
         ctx.packageManager.getLaunchIntentForPackage(ctx.packageName) ?: Intent()
       }
     return intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+  }
+
+  /** Heading, title line and detail line of the alarm for a planned block. */
+  fun texts(item: AlarmStore.Item): Triple<String, String, String> {
+    val minutes = item.costMs / 60_000L
+    return if (item.isCards) {
+      Triple("Время повторить карточки", item.title, "~$minutes мин.")
+    } else {
+      Triple("Время учить алгоритм", item.title, "${difficultyLabel(item.difficulty)} · ~$minutes мин.")
+    }
   }
 
   fun show(ctx: Context, item: AlarmStore.Item) {
@@ -65,15 +79,11 @@ object AlarmNotification {
     val fullScreen = PendingIntent.getActivity(
       ctx,
       10,
-      Intent(ctx, AlarmActivity::class.java)
-        .putExtra(AlarmScheduler.EXTRA_SLUG, item.slug)
-        .putExtra(AlarmScheduler.EXTRA_TITLE, item.title)
-        .putExtra(AlarmScheduler.EXTRA_DIFFICULTY, item.difficulty)
-        .putExtra(AlarmScheduler.EXTRA_COST, item.costMs)
+      AlarmScheduler.putItem(Intent(ctx, AlarmActivity::class.java), item)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION),
       flags,
     )
-    val start = PendingIntent.getActivity(ctx, 11, openIntent(ctx, item.slug), flags)
+    val start = PendingIntent.getActivity(ctx, 11, openIntent(ctx, item), flags)
     val later = PendingIntent.getBroadcast(
       ctx,
       12,
@@ -81,15 +91,15 @@ object AlarmNotification {
       flags,
     )
 
-    val minutes = item.costMs / 60_000L
+    val (heading, title, detail) = texts(item)
     @Suppress("DEPRECATION")
     val builder =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(ctx, CHANNEL_ID) else Notification.Builder(ctx)
     builder
       .setSmallIcon(smallIcon(ctx))
       .setColor(Color.parseColor("#3B5BDB"))
-      .setContentTitle("Время учить алгоритм")
-      .setContentText("${item.title} · ${difficultyLabel(item.difficulty)} · ~$minutes мин.")
+      .setContentTitle(heading)
+      .setContentText("$title · $detail")
       .setCategory(Notification.CATEGORY_ALARM)
       .setVisibility(Notification.VISIBILITY_PUBLIC)
       .setFullScreenIntent(fullScreen, true)

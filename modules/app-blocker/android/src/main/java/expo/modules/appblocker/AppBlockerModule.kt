@@ -21,6 +21,9 @@ class BlockerConfig : Record {
   @Field var reserveMs: Double = 0.0
   @Field var day: String = ""
   @Field var dayStartHour: Int = 0
+  @Field var cardsLeft: Int = 0
+  @Field var cardGoal: Int = 0
+  @Field var cardsReviewed: Int = 0
 }
 
 class AppBlockerModule : Module() {

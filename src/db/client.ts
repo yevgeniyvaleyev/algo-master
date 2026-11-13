@@ -7,9 +7,49 @@ export const db = (cache.__algomasterDb ??= SQLite.openDatabaseSync('algomaster.
 
 export const UNCATEGORIZED_KEY = '__uncategorized__';
 
-const DATABASE_VERSION = 6;
+const DATABASE_VERSION = 7;
+
+/** How long a statement waits for another connection's write lock before failing with "database is locked". */
+const BUSY_TIMEOUT_MS = 5_000;
+
+/**
+ * Exclusive write transaction. expo-sqlite runs it on its own connection, which (like the main one) fails at once on a
+ * concurrent write unless it has a busy timeout, so one is set first. Use this instead of `withExclusiveTransactionAsync`.
+ */
+export async function writeTransaction(task: (tx: SQLite.SQLiteDatabase) => Promise<void>): Promise<void> {
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.execAsync(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
+    await task(tx);
+  });
+}
+
+/** kv key asking the next start to erase everything (set by `requestReset`, consumed by `migrate`). */
+const RESET_KEY = 'resetPending';
+
+/**
+ * Asks for everything this app stored to be erased (progress, logs, cards, custom solutions, settings in `kv`). The
+ * tables are dropped on the next start, before anything else touches the database, so nothing running now hits a
+ * missing table. The app must be restarted afterwards.
+ */
+export async function requestReset(): Promise<void> {
+  await kvSet(RESET_KEY, true);
+}
+
+async function resetIfRequested(): Promise<void> {
+  const hasKv = await db.getFirstAsync("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kv'");
+  if (!hasKv || !(await kvGet<boolean>(RESET_KEY))) return;
+  const tables = await db.getAllAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+  );
+  await writeTransaction(async (tx) => {
+    for (const { name } of tables) await tx.execAsync(`DROP TABLE IF EXISTS "${name}"`);
+  });
+  await db.execAsync('PRAGMA user_version = 0');
+}
 
 export async function migrate(): Promise<void> {
+  await db.execAsync(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
+  await resetIfRequested();
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let version = row?.user_version ?? 0;
   if (version >= DATABASE_VERSION) return;
@@ -115,6 +155,22 @@ CREATE TABLE in_progress (
 );
 `);
     version = 6;
+  }
+
+  if (version === 6) {
+    // Every flash-card answer (✓ or ✗) for the daily card minimum; `ahead` = pulled ahead of its due day.
+    await db.execAsync(`
+CREATE TABLE card_reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL,
+  day TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  known INTEGER NOT NULL,
+  ahead INTEGER NOT NULL
+);
+CREATE INDEX card_reviews_day ON card_reviews(day);
+`);
+    version = 7;
   }
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);

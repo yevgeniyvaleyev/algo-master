@@ -28,5 +28,8 @@ export async function syncAlarms(): Promise<void> {
       difficulty: a.difficulty,
       costMs: b.upcoming[i].costMs,
     })),
+    cardsLeft: b.cards.left,
+    cardGoal: b.cardGoalTomorrow,
+    cardCostMs: b.cardCostMs,
   });
 }

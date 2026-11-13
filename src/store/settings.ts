@@ -27,6 +27,12 @@ export interface Settings {
   /** Card gate: answer `cardGateCount` flash cards before using the app (on start and after 10 min away). */
   cardGateEnabled: boolean;
   cardGateCount: number;
+  /** Daily flash-card minimum, planned into the learning day (0 = off); see `cardDay`. */
+  cardDailyGoal: number;
+  /** Cards pulled ahead of their due day when nothing is pending. */
+  cardAheadCount: number;
+  /** Estimated minutes per flash card (planning and reserve). */
+  cardMinutes: number;
   theme: ThemeMode;
   blockedPackages: string[];
   codeFontSize: number;
@@ -53,6 +59,9 @@ export const DEFAULT_SETTINGS: Settings = {
   cardBoxOneSize: 10,
   cardGateEnabled: true,
   cardGateCount: 2,
+  cardDailyGoal: 5,
+  cardAheadCount: 2,
+  cardMinutes: 2,
   theme: 'system',
   blockedPackages: [],
   codeFontSize: 13,

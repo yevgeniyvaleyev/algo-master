@@ -4,9 +4,9 @@ import { BackHandler, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CardReview } from '@/components/CardReview';
-import { getCardDeck } from '@/db/repo';
 import { saveCardWrites } from '@/logic/actions';
 import { cardsWord } from '@/logic/card-gate';
+import { loadCardDay } from '@/logic/day-budget';
 import { startSession, type Session } from '@/logic/leitner';
 import { useCardGate } from '@/store/card-gate';
 import { useSettings } from '@/store/settings';
@@ -27,9 +27,9 @@ export function CardGate() {
 
   useEffect(() => {
     let cancelled = false;
-    getCardDeck().then((deck) => {
+    loadCardDay().then(({ deck, cards }) => {
       if (cancelled) return;
-      const started = startSession(deck, { capacity });
+      const started = startSession(deck, { capacity, ahead: cards.ahead });
       void saveCardWrites(started.writes);
       if (started.session.queue.length === 0) clear();
       else setSession(started.session);

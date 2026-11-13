@@ -23,6 +23,12 @@ export interface StudyAlarmsConfig {
   dayStartHour: number;
   /** Next unlearned algorithms in suggestion order (at least the remaining goal). */
   upcoming: AlarmItem[];
+  /** Flash cards still to review today; planned in groups between the algorithms (planItems, mirrored natively). */
+  cardsLeft: number;
+  /** Cards to plan for a new day until JS syncs again (0 when there are no cards). */
+  cardGoal: number;
+  /** Estimated time per card. */
+  cardCostMs: number;
 }
 
 export interface NextAlarm {

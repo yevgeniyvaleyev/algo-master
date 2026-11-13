@@ -6,7 +6,7 @@ import { learningOrder } from '@/logic/learning-order';
 import type { DailyCounts } from '@/logic/progress';
 import { planSeed } from '@/logic/seed';
 
-import { db, kvGet, kvSet, UNCATEGORIZED_KEY } from './client';
+import { db, kvGet, kvSet, UNCATEGORIZED_KEY, writeTransaction } from './client';
 
 export interface Topic {
   id: number;
@@ -54,7 +54,7 @@ export async function runSeed(manifest: Manifest): Promise<void> {
     new Set(deleted),
   );
 
-  await db.withExclusiveTransactionAsync(async (tx) => {
+  await writeTransaction(async (tx) => {
     for (const t of plan.topicsToInsert) {
       await tx.runAsync('INSERT INTO topics (seed_key, name, sort_order) VALUES (?, ?, ?)', t.key, t.name, t.order);
     }
@@ -146,7 +146,7 @@ export async function deleteTopic(id: number): Promise<void> {
     'SELECT id FROM topics WHERE seed_key = ?',
     UNCATEGORIZED_KEY,
   );
-  await db.withExclusiveTransactionAsync(async (tx) => {
+  await writeTransaction(async (tx) => {
     await tx.runAsync('UPDATE algos SET topic_id = ? WHERE topic_id = ?', fallback!.id, id);
     await tx.runAsync('DELETE FROM topics WHERE id = ?', id);
   });
@@ -174,7 +174,7 @@ export async function getAlgo(slug: string): Promise<AlgoRow | null> {
 
 export async function setLearned(slug: string, learned: boolean, now: Date = new Date()): Promise<void> {
   const today = dayKey(now);
-  await db.withExclusiveTransactionAsync(async (tx) => {
+  await writeTransaction(async (tx) => {
     // Learning or unmarking ends "in progress".
     await tx.runAsync('DELETE FROM in_progress WHERE slug = ?', slug);
     if (learned) {
@@ -255,7 +255,7 @@ export async function getCardDeck(): Promise<DeckCard[]> {
 /** Stores flash card moves; a ✓ answer also refreshes the learned mark (pushes back auto-unmark) and is logged. */
 export async function saveCardWrites(writes: readonly CardWrite[], now: number = Date.now()): Promise<void> {
   if (writes.length === 0) return;
-  await db.withExclusiveTransactionAsync(async (tx) => {
+  await writeTransaction(async (tx) => {
     for (const w of writes) {
       await tx.runAsync(
         `INSERT INTO cards (slug, box, due_day, reviewed_at) VALUES (?, ?, ?, ?)
@@ -269,8 +269,32 @@ export async function saveCardWrites(writes: readonly CardWrite[], now: number =
         await tx.runAsync('UPDATE progress SET learned_at = ? WHERE slug = ?', now, w.slug);
         await tx.runAsync('INSERT INTO card_log (slug, day, ts) VALUES (?, ?, ?)', w.slug, dayKey(new Date(now)), now);
       }
+      if (w.review) {
+        await tx.runAsync(
+          'INSERT INTO card_reviews (slug, day, ts, known, ahead) VALUES (?, ?, ?, ?, ?)',
+          w.slug,
+          dayKey(new Date(now)),
+          now,
+          w.review.known ? 1 : 0,
+          w.review.ahead ? 1 : 0,
+        );
+      }
     }
   });
+}
+
+/**
+ * Distinct cards answered ✓ today and how many of them were pulled ahead of their due day. ✗ answers are logged too but
+ * don't count toward the daily minimum (they only pass the entry gate); the card stays pending until it is known.
+ */
+export async function getCardDayStats(
+  today: Date = new Date(),
+): Promise<{ reviewed: string[]; aheadReviewed: number }> {
+  const rows = await db.getAllAsync<{ slug: string; ahead: number }>(
+    'SELECT slug, MAX(ahead) AS ahead FROM card_reviews WHERE day = ? AND known = 1 GROUP BY slug',
+    dayKey(today),
+  );
+  return { reviewed: rows.map((r) => r.slug), aheadReviewed: rows.filter((r) => r.ahead === 1).length };
 }
 
 // ---------- Stats ----------

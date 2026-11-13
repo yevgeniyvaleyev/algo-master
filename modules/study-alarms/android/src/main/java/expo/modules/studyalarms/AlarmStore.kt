@@ -12,7 +12,24 @@ import java.util.Locale
 object AlarmStore {
   private const val PREFS = "algomaster_study_alarms"
 
-  data class Item(val slug: String, val title: String, val difficulty: String, val costMs: Long)
+  /** A planned block: an algorithm, or (`kind` = "cards") a group of `count` flash cards. */
+  data class Item(
+    val slug: String,
+    val title: String,
+    val difficulty: String,
+    val costMs: Long,
+    val kind: String = KIND_ALGO,
+    val count: Int = 0,
+  ) {
+    val isCards get() = kind == KIND_CARDS
+
+    companion object {
+      const val KIND_ALGO = "algo"
+      const val KIND_CARDS = "cards"
+
+      fun cards(count: Int, costMs: Long) = Item("", "Карточки: $count", "easy", costMs, KIND_CARDS, count)
+    }
+  }
 
   data class Config(
     val enabled: Boolean,
@@ -23,6 +40,9 @@ object AlarmStore {
     val day: String,
     val dayStartHour: Int,
     val upcoming: List<Item>,
+    val cardsLeft: Int,
+    val cardGoal: Int,
+    val cardCostMs: Long,
   ) {
     /** `ms` moved back by the day start hour: its calendar day is the app's day. */
     fun logical(ms: Long): Long = ms - dayStartHour * 3_600_000L
@@ -50,6 +70,9 @@ object AlarmStore {
       .putString("day", config.day)
       .putInt("dayStartHour", config.dayStartHour)
       .putString("upcoming", upcoming.toString())
+      .putInt("cardsLeft", config.cardsLeft)
+      .putInt("cardGoal", config.cardGoal)
+      .putLong("cardCostMs", config.cardCostMs.toLong())
       .apply()
   }
 
@@ -69,11 +92,17 @@ object AlarmStore {
       day = p.getString("day", "") ?: "",
       dayStartHour = p.getInt("dayStartHour", 0),
       upcoming = upcoming,
+      cardsLeft = p.getInt("cardsLeft", 0),
+      cardGoal = p.getInt("cardGoal", 0),
+      cardCostMs = p.getLong("cardCostMs", 2 * 60_000L),
     )
   }
 
   /** Learned today; a config written on an earlier day counts as 0. */
   fun learnedToday(config: Config): Int = if (config.day == today(config)) config.learnedToday else 0
+
+  /** Flash cards still to review today; a config written on an earlier day asks for the whole card goal. */
+  fun cardsLeftToday(config: Config): Int = if (config.day == today(config)) config.cardsLeft else config.cardGoal
 
   fun saveNext(ctx: Context, at: Long?, item: Item?) {
     prefs(ctx).edit()

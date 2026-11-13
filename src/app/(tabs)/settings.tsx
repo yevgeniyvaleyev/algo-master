@@ -3,9 +3,21 @@ import { AppBlocker } from '@modules/app-blocker';
 import { StudyAlarms } from '@modules/study-alarms';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Alert,
+  AppState,
+  DevSettings,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 
 import type { Difficulty } from '@/content/types';
+import { requestReset } from '@/db/client';
 import { runExpiration } from '@/logic/actions';
 import { cardsWord, GATE_AWAY_MS } from '@/logic/card-gate';
 import { BOX_INTERVAL_DAYS, boxInterval } from '@/logic/leitner';
@@ -228,6 +240,29 @@ export default function SettingsScreen() {
 
       <Text style={[styles.section, { color: colors.textMuted }]}>Карточки</Text>
       <View style={card}>
+        <Row
+          label="Карточек в день"
+          hint={
+            s.cardDailyGoal > 0
+              ? 'Засчитываются только ответы «знаю» (✓); «не знаю» пропускает лишь вход в приложение. Планируются в учебный день между алгоритмами; блокировка снимается, когда повторены и они. Если карточек меньше — хватит тех, что есть'
+              : 'Выключено'
+          }
+        >
+          <Stepper value={s.cardDailyGoal} min={0} max={30} onChange={(v) => s.update({ cardDailyGoal: v })} />
+        </Row>
+        {s.cardDailyGoal > 0 && (
+          <>
+            <Row
+              label="Заранее, если нечего повторять"
+              hint="Когда на сегодня карточек нет, повторить столько ближайших раньше срока"
+            >
+              <Stepper value={s.cardAheadCount} min={0} max={10} onChange={(v) => s.update({ cardAheadCount: v })} />
+            </Row>
+            <Row label="Минут на карточку" hint="Для плана дня и резерва времени">
+              <Stepper value={s.cardMinutes} min={1} max={10} onChange={(v) => s.update({ cardMinutes: v })} />
+            </Row>
+          </>
+        )}
         <Row label="Карточек в коробке 1" hint="Новые карточки ждут, пока в коробке 1 есть место">
           <Stepper value={s.cardBoxOneSize} min={3} max={50} onChange={(v) => s.update({ cardBoxOneSize: v })} />
         </Row>
@@ -416,7 +451,42 @@ export default function SettingsScreen() {
           </Row>
         </Pressable>
       </View>
+
+      <Text style={[styles.section, { color: colors.textMuted }]}>Данные</Text>
+      <View style={card}>
+        <Row
+          label="Сбросить все данные"
+          hint="Удаляет отметки, историю, карточки, свои решения и настройки этого приложения и начинает с чистого листа"
+        >
+          <Pressable onPress={confirmReset} style={[styles.button, { backgroundColor: colors.danger }]}>
+            <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Сбросить</Text>
+          </Pressable>
+        </Row>
+      </View>
     </ScrollView>
+  );
+}
+
+function confirmReset() {
+  Alert.alert(
+    'Сбросить все данные?',
+    'Отметки, история, серия, карточки, свои решения и настройки будут удалены без возможности восстановления.',
+    [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Сбросить',
+        style: 'destructive',
+        onPress: async () => {
+          await requestReset();
+          if (__DEV__) DevSettings.reload();
+          else
+            Alert.alert(
+              'Сброс при следующем запуске',
+              'Закрой и снова открой приложение — данные удалятся при запуске.',
+            );
+        },
+      },
+    ],
   );
 }
 

@@ -3,34 +3,74 @@ import Svg, { Circle, Line, Rect } from 'react-native-svg';
 
 import { useColors } from '@/theme';
 
-export function ProgressRing({ value, goal, size = 140 }: { value: number; goal: number; size?: number }) {
+/**
+ * Today's progress ring: the outer ring is the algorithm goal; the optional `inner` ring (drawn inside it in its own
+ * color) is a second goal, e.g. the daily card minimum, whose count is printed under the main one.
+ */
+export function ProgressRing({
+  value,
+  goal,
+  size = 140,
+  inner,
+}: {
+  value: number;
+  goal: number;
+  size?: number;
+  inner?: { value: number; goal: number; color: string; label: string; done?: boolean };
+}) {
   const colors = useColors();
-  const stroke = 12;
-  const r = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * r;
-  const ratio = goal > 0 ? Math.min(1, value / goal) : 1;
-  const done = value >= goal;
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.surfaceAlt} strokeWidth={stroke} fill="none" />
+  const stroke = inner ? 10 : 12;
+  const gap = 4;
+  const arc = (r: number, v: number, g: number, color: string, width: number, doneOverride?: boolean) => {
+    const circumference = 2 * Math.PI * r;
+    // No goal means nothing to show as done: an empty track, not a full ring.
+    const done = doneOverride ?? (g > 0 && v >= g);
+    // The arc always shows the real share of the goal; `done` only switches it to the success color (e.g. 1/5 when
+    // that was every card there was to review today).
+    const ratio = g > 0 ? Math.min(1, v / g) : 0;
+    return (
+      <>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.surfaceAlt} strokeWidth={width} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke={done ? colors.success : colors.primary}
-          strokeWidth={stroke}
+          stroke={done ? colors.success : color}
+          strokeWidth={width}
           fill="none"
           strokeLinecap="round"
           strokeDasharray={`${circumference} ${circumference}`}
           strokeDashoffset={circumference * (1 - ratio)}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
+      </>
+    );
+  };
+  const outerR = (size - stroke) / 2;
+  const innerStroke = 8;
+  const innerR = outerR - stroke / 2 - gap - innerStroke / 2;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        {arc(outerR, value, goal, colors.primary, stroke)}
+        {inner && arc(innerR, inner.value, inner.goal, inner.color, innerStroke, inner.done)}
       </Svg>
-      <Text style={{ color: colors.text, fontSize: 32, fontWeight: '800' }}>
+      <Text style={{ color: colors.text, fontSize: inner ? 26 : 32, fontWeight: '800' }}>
         {value}/{goal}
       </Text>
-      <Text style={{ color: colors.textMuted, fontSize: 12 }}>сегодня</Text>
+      {inner ? (
+        <Text
+          style={{
+            color: (inner.done ?? (inner.goal > 0 && inner.value >= inner.goal)) ? colors.success : inner.color,
+            fontSize: 13,
+            fontWeight: '700',
+          }}
+        >
+          {inner.value}/{inner.goal} {inner.label}
+        </Text>
+      ) : (
+        <Text style={{ color: colors.textMuted, fontSize: 12 }}>сегодня</Text>
+      )}
     </View>
   );
 }

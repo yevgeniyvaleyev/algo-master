@@ -16,6 +16,12 @@ export interface BlockerConfig {
   day: string;
   /** Hour the app's day starts (setting «Новый день с»); the native "today" is shifted by it. */
   dayStartHour: number;
+  /** Flash cards still to review today (daily card minimum); the goal is met only when this is 0 too. */
+  cardsLeft: number;
+  /** Cards a new day asks for before JS syncs again (0 when there are no cards). */
+  cardGoal: number;
+  /** Cards reviewed today, for the block screen. */
+  cardsReviewed: number;
 }
 
 export interface LaunchableApp {

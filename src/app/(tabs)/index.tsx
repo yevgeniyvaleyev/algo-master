@@ -7,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DailyBars, Meter, ProgressRing, StackedMeter } from '@/components/charts';
 import { CardBoxes } from '@/components/CardBoxes';
-import { DayTimeline } from '@/components/DayTimeline';
+import { CARDS_COLOR, DayTimeline } from '@/components/DayTimeline';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { displayTitle } from '@/content/format';
 import type { Difficulty } from '@/content/types';
@@ -146,6 +146,10 @@ export default function DashboardScreen() {
       s.difficultyFactors,
       s.reminderStartHour,
       s.reminderEndHour,
+      s.cardDailyGoal,
+      s.cardAheadCount,
+      s.cardMinutes,
+      s.cardBoxOneSize,
     ]),
   );
   const data = useQuery(loadDashboard, budgetKey);
@@ -162,16 +166,23 @@ export default function DashboardScreen() {
   const chart = days.map((d) => data.counts[d] ?? 0);
   const weekdays = days.map((d) => WEEKDAYS[new Date(`${d}T00:00:00`).getDay()]);
   const b = data.budget;
-  const available = availableMs(now, b.learned.length, b.goal, b.granted, data.usedMs, b.deadline, b.reserve);
+  const available = availableMs(now, b.goalMet, b.granted, data.usedMs, b.deadline, b.reserve);
   const timeline = dayTimeline({
     now,
     start: b.start,
     end: b.deadline,
     learned: b.learned,
-    goal: b.goal,
-    upcoming: b.upcoming,
+    items: b.items,
+    goalMet: b.goalMet,
     available,
   });
+  const firstItem = b.items[0];
+  const nextTitle =
+    firstItem == null ? undefined : firstItem.kind === 'cards' ? `Карточки: ${firstItem.count}` : firstItem.title;
+  const cards = b.cards;
+  const cardsDone = cards.goal > 0 && cards.target > 0 && cards.left === 0;
+  // Green only for really reaching the goal; running out of cards (cardsDone, «больше нет») is not shown as success.
+  const cardsGoalMet = cards.goal > 0 && cards.reviewed >= cards.goal;
   const next = b.next.slice(0, 3);
 
   // Forecast of the day everything is learned at once: by the daily goal and by the pace of the last two weeks.
@@ -187,11 +198,44 @@ export default function DashboardScreen() {
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.content}>
       <View style={[card, styles.todayCard]}>
-        <ProgressRing value={today} goal={goal} />
+        <ProgressRing
+          value={today}
+          goal={goal}
+          inner={
+            cards.goal > 0 ? { value: cards.reviewed, goal: cards.goal, color: CARDS_COLOR, label: 'карт.' } : undefined
+          }
+        />
         <View style={styles.todayInfo}>
           <Text style={[styles.todayTitle, { color: colors.text }]}>
-            {today >= goal ? 'Цель на сегодня выполнена!' : `Осталось: ${goal - today}`}
+            {today < goal || cards.left > 0 ? 'Сегодня' : 'Цель на сегодня выполнена!'}
           </Text>
+          <View style={styles.statRow}>
+            <Ionicons
+              name={today >= goal ? 'checkmark-circle' : 'school'}
+              size={18}
+              color={today >= goal ? colors.success : colors.primary}
+            />
+            <Text style={{ color: colors.text }}>
+              Алгоритмы: {today}/{goal}
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <Ionicons
+              name={cardsGoalMet ? 'checkmark-circle' : 'albums'}
+              size={18}
+              color={cardsGoalMet ? colors.success : CARDS_COLOR}
+            />
+            <Text style={{ color: colors.text }}>
+              {cards.goal > 0
+                ? `Карточки: ${cards.reviewed}/${cards.goal}` +
+                  (cards.target === 0 && cards.reviewed === 0
+                    ? ' — пока нечего повторять'
+                    : cardsDone && cards.reviewed < cards.goal
+                      ? ' — больше нет'
+                      : '')
+                : `Карточки: ${cards.reviewed}`}
+            </Text>
+          </View>
           <View style={styles.statRow}>
             <Ionicons name="flame" size={18} color={colors.difficulty.medium} />
             <Text style={{ color: colors.text }}>Серия: {streak} дн.</Text>
@@ -218,7 +262,7 @@ export default function DashboardScreen() {
       {b.start < b.deadline && (
         <View style={card}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Учебный день</Text>
-          <DayTimeline timeline={timeline} alarms={alarms} nextTitle={b.next[0] && displayTitle(b.next[0])} />
+          <DayTimeline timeline={timeline} alarms={alarms} nextTitle={nextTitle} />
         </View>
       )}
 
@@ -297,6 +341,23 @@ export default function DashboardScreen() {
             <StatTile label="Повторено всего" value={data.cardRefresh.total} color={colors.primary} />
             <StatTile label="К повтору" value={dueCount(data.deck, boxOneSize)} color={colors.difficulty.medium} />
           </View>
+          {cards.goal > 0 && (
+            <>
+              <Meter
+                label={cards.left === 0 ? 'Сегодня — готово' : 'Сегодня'}
+                value={cards.reviewed}
+                total={cards.target}
+                color={colors.success}
+              />
+              {cards.target < cards.goal && (
+                <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+                  {cards.ahead.length > 0
+                    ? 'Повторять нечего — ближайшие карточки заранее'
+                    : `Больше карточек на сегодня нет (цель ${cards.goal})`}
+                </Text>
+              )}
+            </>
+          )}
           <CardBoxes {...boxCounts(data.deck)} due={dueByBox(data.deck, boxOneSize)} wide />
         </Pressable>
       )}

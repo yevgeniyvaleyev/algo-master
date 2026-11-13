@@ -28,6 +28,9 @@ class AlarmConfig : Record {
   @Field var day: String = ""
   @Field var dayStartHour: Int = 0
   @Field var upcoming: List<AlarmItemRecord> = emptyList()
+  @Field var cardsLeft: Int = 0
+  @Field var cardGoal: Int = 0
+  @Field var cardCostMs: Double = 120_000.0
 }
 
 class StudyAlarmsModule : Module() {
