@@ -81,11 +81,28 @@ const makeRules = (compact: boolean): RenderRules => ({
   },
 });
 
-/** `compact`: smaller text and padding on a transparent background (flash cards). */
-export function MarkdownView({ children, compact = false }: { children: string; compact?: boolean }) {
+/**
+ * `compact`: smaller text and padding on a transparent background (flash cards). `scroll={false}` renders just the
+ * Markdown, for several blocks inside one scroll view (notes).
+ */
+export function MarkdownView({
+  children,
+  compact = false,
+  scroll = true,
+}: {
+  children: string;
+  compact?: boolean;
+  scroll?: boolean;
+}) {
   const colors = useColors();
   const style = useMemo(() => makeStyles(colors, compact), [colors, compact]);
   const rules = useMemo(() => makeRules(compact), [compact]);
+  if (!scroll)
+    return (
+      <Markdown style={style} rules={rules}>
+        {children}
+      </Markdown>
+    );
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: compact ? 'transparent' : colors.background }}

@@ -71,6 +71,7 @@ export default function AlgoLayout() {
           <TopTabs.Screen name="solution" options={{ title: 'Решение' }} />
           <TopTabs.Screen name="explanation" options={{ title: 'Разбор' }} />
           <TopTabs.Screen name="theory" options={{ title: 'Теория' }} />
+          <TopTabs.Screen name="notes" options={{ title: 'Заметки' }} />
         </TopTabs>
       </AlgoSlugContext.Provider>
     </>

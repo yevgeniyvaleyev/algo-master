@@ -55,9 +55,12 @@ export function DayTimeline({
   alarms: boolean;
 }) {
   const colors = useColors();
-  const { start, end, now, segments, ticks, latestStart, shortageMs, ended, plan, nextAlarm } = timeline;
-  // Where each planned block's alarm rings (the first one keeps the minimum gap from now).
-  const bells = plan.map((b, i) => (i === 0 && nextAlarm != null ? nextAlarm : b.start)).filter((t) => t < end);
+  const { start, end, now, segments, ticks, latestStart, shortageMs, ended, plan, nextAlarm, nextAlarmIndex, rings } =
+    timeline;
+  // Where each ringing block's alarm rings (the next one keeps the minimum gap from now).
+  const bells = plan
+    .map((b, i) => (!rings[i] ? null : i === nextAlarmIndex && nextAlarm != null ? nextAlarm : b.start))
+    .filter((t): t is number => t != null && t < end);
   const span = Math.max(1, end - start);
   const pct = (t: number) => `${((t - start) / span) * 100}%` as const;
   const width = (s: { start: number; end: number }) => `${((s.end - s.start) / span) * 100}%` as const;

@@ -65,6 +65,13 @@ describe('grantedMs', () => {
     expect(grantedMs(learned, 3, deadline, easy(1), 30 * MIN)).toBe(10 * MIN + Math.floor((90 - 30) / 2) * MIN);
   });
 
+  it('scales the cap by cost so a card earns less than an algorithm', () => {
+    // A 2-minute card at 9:00, 30-minute base: cap 30 × 2 / 30 = 2 minutes.
+    const card = [{ ts: at(9), costMs: 2 * MIN }];
+    expect(grantedMs(card, 3, deadline, easy(2), 30 * MIN, 0, 30 * MIN)).toBe(2 * MIN);
+    expect(grantedMs(learnedEasy(at(9)), 3, deadline, easy(2), 30 * MIN, 0, 30 * MIN)).toBe(30 * MIN);
+  });
+
   it('drops the grant of an unmarked algorithm', () => {
     expect(grantedMs([], 3, deadline, easy(3), 30 * MIN)).toBe(0);
   });
@@ -155,6 +162,34 @@ describe('dayTimeline', () => {
     ]);
     expect(t.segments.find((s) => s.kind === 'cards')).toMatchObject({ count: 3 });
     expect(t.latestStart).toBe(deadline - 66 * MIN);
+  });
+
+  it('rings only for the kinds of alarms that are on', () => {
+    const items = planItems(easy(2), 3, 2 * MIN);
+    const all = dayTimeline({ ...base, now: at(12), learned: [], items, available: 0 });
+    const cardsOnly = dayTimeline({
+      ...base,
+      now: at(12),
+      learned: [],
+      items,
+      available: 0,
+      rings: { algo: false, cards: true },
+    });
+    expect(all.rings).toEqual([true, true, true]);
+    expect(all.nextAlarmIndex).toBe(0);
+    expect(cardsOnly.rings).toEqual([false, true, false]);
+    expect(cardsOnly.nextAlarmIndex).toBe(1);
+    expect(cardsOnly.nextAlarm).toBe(cardsOnly.plan[1].start);
+    const none = dayTimeline({
+      ...base,
+      now: at(12),
+      learned: [],
+      items,
+      available: 0,
+      rings: { algo: false, cards: false },
+    });
+    expect(none.nextAlarm).toBeNull();
+    expect(none.nextAlarmIndex).toBeNull();
   });
 
   it('marks the day as ended after the deadline with the goal unmet', () => {

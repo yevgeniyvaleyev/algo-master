@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Rect } from 'react-native-svg';
 
+import type { Difficulty } from '@/content/types';
 import { useColors } from '@/theme';
 
 /**
@@ -71,6 +73,60 @@ export function ProgressRing({
       ) : (
         <Text style={{ color: colors.textMuted, fontSize: 12 }}>сегодня</Text>
       )}
+    </View>
+  );
+}
+
+const RING_ORDER: Difficulty[] = ['easy', 'medium', 'hard'];
+
+/**
+ * Donut split by difficulty: one arc per difficulty, sized by its share of the cards (easy, medium, hard clockwise from
+ * the top, small gaps between arcs); just the grey track when there are none. `children` goes in the middle.
+ */
+export function DifficultyRing({
+  counts,
+  size = 44,
+  stroke = 5,
+  children,
+}: {
+  counts: Record<Difficulty, number>;
+  size?: number;
+  stroke?: number;
+  children?: ReactNode;
+}) {
+  const colors = useColors();
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const total = RING_ORDER.reduce((n, d) => n + counts[d], 0);
+  const parts = RING_ORDER.filter((d) => counts[d] > 0);
+  const gap = parts.length > 1 ? Math.min(4, circumference / 40) : 0;
+  let offset = 0;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.surfaceAlt} strokeWidth={stroke} fill="none" />
+        {total > 0 &&
+          parts.map((d) => {
+            const length = (counts[d] / total) * circumference;
+            const start = offset;
+            offset += length;
+            return (
+              <Circle
+                key={d}
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                stroke={colors.difficulty[d]}
+                strokeWidth={stroke}
+                fill="none"
+                strokeDasharray={`${Math.max(0.5, length - gap)} ${circumference}`}
+                strokeDashoffset={-start}
+                transform={`rotate(-90 ${size / 2} ${size / 2})`}
+              />
+            );
+          })}
+      </Svg>
+      {children}
     </View>
   );
 }

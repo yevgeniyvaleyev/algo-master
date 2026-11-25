@@ -61,8 +61,13 @@ object StudyPlan {
 
   const val MIN_CARD_GROUP = 2
 
-  fun nextAlarmAt(plan: List<Block>, now: Long): Long? =
-    plan.firstOrNull()?.let { maxOf(it.start, now + MIN_ALARM_GAP_MS) }
+  /** Index of the first block that rings (`rings[i]`, default all); mirrors the `rings` lookup in nextAlarmAt (JS). */
+  fun firstRinging(plan: List<Block>, rings: List<Boolean> = emptyList()): Int? =
+    plan.indices.firstOrNull { rings.getOrElse(it) { true } }
+
+  /** Mirror of nextAlarmAt in src/logic/study-plan.ts: the first ringing block's start, at least MIN_ALARM_GAP_MS from now. */
+  fun nextAlarmAt(plan: List<Block>, now: Long, rings: List<Boolean> = emptyList()): Long? =
+    firstRinging(plan, rings)?.let { maxOf(plan[it].start, now + MIN_ALARM_GAP_MS) }
 
   /** Timestamp of `hour`:00 on the local day of `dayMs` shifted by `dayOffset` days (mirrors atHour in budget.ts). */
   fun atHour(dayMs: Long, dayOffset: Int, hour: Int): Long =

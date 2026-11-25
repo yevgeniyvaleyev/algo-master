@@ -1,5 +1,5 @@
 import { dayKey, lastDays } from '../dates';
-import { algoStatus, computeStreak, expirationCutoff, nextStatus } from '../progress';
+import { algoStatus, computeStreak, nextStatus } from '../progress';
 
 const today = new Date(2026, 9, 11, 15, 0);
 
@@ -14,6 +14,12 @@ describe('dayKey / lastDays', () => {
 });
 
 describe('computeStreak', () => {
+  it('counts a day with credit as met when the reduced goal is reached', () => {
+    const counts = { '2026-10-10': 1, '2026-10-11': 3 };
+    expect(computeStreak(counts, 3, today)).toBe(1);
+    expect(computeStreak(counts, 3, today, { '2026-10-10': 2 })).toBe(2);
+  });
+
   it('counts consecutive met days including today', () => {
     const counts = { '2026-10-09': 3, '2026-10-10': 4, '2026-10-11': 3 };
     expect(computeStreak(counts, 3, today)).toBe(3);
@@ -31,21 +37,6 @@ describe('computeStreak', () => {
 
   it('is zero for non-positive goal', () => {
     expect(computeStreak({ '2026-10-11': 5 }, 0, today)).toBe(0);
-  });
-});
-
-describe('expirationCutoff', () => {
-  it('is null when auto-unmark is off', () => {
-    expect(expirationCutoff(false, 7, 1_000)).toBeNull();
-  });
-
-  it('subtracts expiration days', () => {
-    const now = Date.UTC(2026, 9, 11);
-    expect(expirationCutoff(true, 2, now)).toBe(now - 2 * 86_400_000);
-  });
-
-  it('clamps negative days to zero', () => {
-    expect(expirationCutoff(true, -3, 500)).toBe(500);
   });
 });
 

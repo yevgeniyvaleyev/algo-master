@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
+import { Pressable } from 'react-native';
 
 import { getCardDeck } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
@@ -47,6 +49,16 @@ export default function TabsLayout() {
           title: 'Карточки',
           tabBarBadge: due > 0 ? due : undefined,
           tabBarIcon: tabIcon('albums-outline'),
+          headerRight: () => (
+            <Pressable
+              hitSlop={10}
+              onPress={() => router.push('/card-stats')}
+              accessibilityLabel="Статистика карточек"
+              style={{ marginRight: 16 }}
+            >
+              <Ionicons name="stats-chart-outline" size={22} color={colors.primary} />
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen

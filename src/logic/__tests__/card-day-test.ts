@@ -1,4 +1,4 @@
-import { cardDay, planItems } from '../card-day';
+import { planItems, splitTomorrow, studyDay } from '../card-day';
 import { answer, startSession, type DeckCard } from '../leitner';
 
 const today = new Date(2026, 9, 15, 15, 0);
@@ -18,90 +18,83 @@ const inBox1 = (n: number) => Array.from({ length: n }, (_, i) => card(`r${i}`, 
 // Boxes 2–5, none due today; c0 is due soonest.
 const notDue = (n: number) =>
   Array.from({ length: n }, (_, i) => card(`c${i}`, { box: 2 + (i % 2), dueDay: `2026-10-${16 + i}` }));
-const base = { goal: 5, ahead: 2, capacity: 10, aheadReviewed: 0, today };
+const base = { goal: 5, capacity: 10, learned: [] as string[], unlearned: 20, today };
+const todayMs = today.getTime();
 
-describe('cardDay', () => {
-  it('asks for the full minimum when enough cards are pending', () => {
-    expect(cardDay({ ...base, deck: inBox1(8), reviewed: [] })).toMatchObject({ target: 5, left: 5, ahead: [] });
-    expect(cardDay({ ...base, deck: inBox1(8), reviewed: ['r0', 'r1'] })).toMatchObject({ reviewed: 2, left: 3 });
+describe('studyDay', () => {
+  it('asks for reviews first, up to the goal', () => {
+    expect(studyDay({ ...base, deck: inBox1(8), reviewed: [] })).toMatchObject({
+      done: 0,
+      cards: 5,
+      algos: 0,
+      left: 5,
+    });
+    expect(studyDay({ ...base, deck: inBox1(8), reviewed: ['r0', 'r1'] })).toMatchObject({ done: 2, cards: 3 });
   });
 
-  it('settles for what is pending when there are fewer cards', () => {
-    expect(cardDay({ ...base, deck: [...inBox1(3), ...notDue(4)], reviewed: [] })).toMatchObject({
-      target: 3,
-      left: 3,
-      ahead: [],
+  it('fills the rest of the goal with new algorithms once the reviews run out', () => {
+    expect(studyDay({ ...base, deck: [...inBox1(3), ...notDue(4)], reviewed: [] })).toMatchObject({
+      cards: 3,
+      algos: 2,
+      left: 5,
     });
-    // A box-1 card answered ✗ stays pending but already counts.
-    expect(cardDay({ ...base, deck: inBox1(3), reviewed: ['r0', 'r1', 'r2'] })).toMatchObject({
-      reviewed: 3,
-      target: 3,
-      left: 0,
-    });
+    // Nothing due at all: the whole goal is new algorithms.
+    expect(studyDay({ ...base, deck: notDue(4), reviewed: [] })).toMatchObject({ cards: 0, algos: 5 });
   });
 
-  it('counts waiting cards that will refill box 1 as pending', () => {
-    expect(cardDay({ ...base, deck: [card('w0'), card('w1')], reviewed: [] }).left).toBe(2);
-    expect(cardDay({ ...base, capacity: 1, deck: [card('w0'), card('w1')], reviewed: [] }).left).toBe(1);
+  it('counts «ждут» cards that refill box 1 as reviews before new algorithms', () => {
+    const waitingCards = Array.from({ length: 3 }, (_, i) => card(`w${i}`, { learnedAt: i }));
+    expect(studyDay({ ...base, capacity: 2, deck: waitingCards, reviewed: [] })).toMatchObject({ cards: 2, algos: 3 });
   });
 
-  it('pulls the cards closest to due ahead when nothing is pending', () => {
-    const deck = notDue(4);
-    expect(cardDay({ ...base, deck, reviewed: [] })).toMatchObject({ target: 2, left: 2, ahead: ['c0', 'c1'] });
-    // One done ahead (now moved further out), one more to go.
-    const moved = deck.map((c) => (c.slug === 'c0' ? { ...c, box: 3, dueDay: '2026-10-22' } : c));
-    expect(cardDay({ ...base, deck: moved, reviewed: ['c0'], aheadReviewed: 1 })).toMatchObject({
-      left: 1,
-      ahead: ['c1'],
-    });
-    expect(cardDay({ ...base, deck: moved, reviewed: ['c0', 'c1'], aheadReviewed: 2 })).toMatchObject({
-      target: 2,
-      left: 0,
+  it('keeps algorithms learned today out of the reviews until tomorrow', () => {
+    const fresh = card('new', { learnedAt: todayMs });
+    expect(studyDay({ ...base, deck: [fresh], reviewed: [], learned: ['new'] })).toMatchObject({
+      done: 1,
+      cards: 0,
+      algos: 4,
     });
   });
 
-  it('does not pull ahead once the pending cards were reviewed today', () => {
-    expect(cardDay({ ...base, deck: notDue(4), reviewed: ['x'] })).toMatchObject({ left: 0, ahead: [] });
+  it('counts ✓ reviews and learned algorithms together, each slug once', () => {
+    expect(studyDay({ ...base, deck: inBox1(8), reviewed: ['r0', 'r0', 'r1'], learned: ['x'] })).toMatchObject({
+      done: 3,
+      reviewed: 2,
+      learned: 1,
+      left: 2,
+    });
   });
 
-  it('never pulls ahead more than the minimum or what exists', () => {
-    expect(cardDay({ ...base, goal: 1, deck: notDue(4), reviewed: [] }).ahead).toEqual(['c0']);
-    expect(cardDay({ ...base, ahead: 5, deck: notDue(1), reviewed: [] }).ahead).toEqual(['c0']);
-    expect(cardDay({ ...base, ahead: 0, deck: notDue(4), reviewed: [] }).left).toBe(0);
-  });
-
-  it('is off with goal 0 and after the minimum', () => {
-    expect(cardDay({ ...base, goal: 0, deck: inBox1(8), reviewed: [] })).toMatchObject({ target: 0, left: 0 });
-    const reviewed = ['r0', 'r1', 'r2', 'r3', 'r4', 'r5'];
-    expect(cardDay({ ...base, deck: inBox1(8), reviewed })).toMatchObject({ reviewed: 6, target: 5, left: 0 });
-  });
-
-  it('asks again for cards that become pending later in the day until the goal is met', () => {
-    // The only card was answered ✓ (now in box 2): nothing left, 1 of 5.
-    const answered = card('a', { box: 2, dueDay: '2026-10-18' });
-    expect(cardDay({ ...base, deck: [answered], reviewed: ['a'] })).toMatchObject({ reviewed: 1, left: 0 });
-    // A newly learned algorithm's card waits for box 1: it is asked for.
-    expect(cardDay({ ...base, deck: [answered, card('b')], reviewed: ['a'] })).toMatchObject({ left: 1, target: 2 });
-  });
-
-  it('counts the same card once', () => {
-    expect(cardDay({ ...base, deck: inBox1(8), reviewed: ['r0', 'r0', 'r0'] }).reviewed).toBe(1);
+  it('is done once the goal is met, or when nothing is left to take', () => {
+    expect(studyDay({ ...base, deck: inBox1(8), reviewed: ['r0', 'r1', 'r2', 'r3', 'r4'] })).toMatchObject({ left: 0 });
+    expect(studyDay({ ...base, unlearned: 0, deck: notDue(2), reviewed: [] })).toMatchObject({ left: 0, done: 0 });
+    expect(studyDay({ ...base, unlearned: 1, deck: notDue(2), reviewed: [] })).toMatchObject({ algos: 1, left: 1 });
   });
 });
 
-describe('ahead sessions', () => {
-  it('reviews the pulled-ahead cards when nothing is due and marks their answers', () => {
-    const deck = notDue(3);
-    const { session } = startSession(deck, { capacity: 10, today, ahead: ['c0', 'c1'] });
-    expect(session.queue).toEqual(['c0', 'c1']);
-    const { writes } = answer(session, true, { capacity: 10, factor: 1, today });
-    expect(writes[0]).toMatchObject({ slug: 'c0', box: 3, review: { known: true, ahead: true } });
+describe('splitTomorrow', () => {
+  it('plans tomorrow’s pending reviews first, the rest as new algorithms', () => {
+    // c0 is due on the 16th (tomorrow), the rest later.
+    expect(splitTomorrow({ deck: notDue(4), goal: 5, capacity: 10, unlearned: 20, today })).toEqual({
+      cards: 1,
+      algos: 4,
+    });
+    expect(splitTomorrow({ deck: inBox1(8), goal: 5, capacity: 10, unlearned: 20, today })).toEqual({
+      cards: 5,
+      algos: 0,
+    });
   });
+});
 
-  it('ignores ahead cards while something is due', () => {
-    const { session } = startSession([...inBox1(1), ...notDue(2)], { capacity: 10, today, ahead: ['c0'] });
-    expect(session.queue).toEqual(['r0']);
-    expect(session.ahead).toBeUndefined();
+describe('same-day waiting', () => {
+  it('does not move an algorithm learned today into box 1', () => {
+    const { session } = startSession([card('old', { learnedAt: 0 }), card('new', { learnedAt: todayMs })], {
+      capacity: 10,
+      today,
+    });
+    expect(session.queue).toEqual(['old']);
+    const { writes } = answer(session, true, { capacity: 10, factor: 1, today });
+    expect(writes.map((w) => w.slug)).toEqual(['old']);
   });
 });
 

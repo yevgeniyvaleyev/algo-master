@@ -1,31 +1,68 @@
 import { displayTitle } from '@/content/format';
 import type { Difficulty } from '@/content/types';
-import { getCardDayStats, getCardDeck, getNextUnlearned, getTodayLearned, type AlgoRow } from '@/db/repo';
+import {
+  getCardDayStats,
+  getCardDeck,
+  getCountsSince,
+  getNextUnlearned,
+  getTodayLearned,
+  getUnlearnedCount,
+  listCredits,
+  type AlgoRow,
+} from '@/db/repo';
 import { useSettings } from '@/store/settings';
 
-import { algoCostMs, atHour, grantedMs, reserveMs, type LearnedToday, type UpcomingAlgo } from './budget';
-import { cardDay, planItems, type CardDay, type DayItem } from './card-day';
+import { algoCostMs, atHour, grantedMs, type LearnedToday, type UpcomingAlgo } from './budget';
+import { planItems, splitTomorrow, studyDay, type DayItem, type StudyDay } from './card-day';
+import { creditState, type Credit, type CreditState } from './credit';
+import { dayKey } from './dates';
 import type { DeckCard } from './leitner';
 
+/** The latest credit («Взять в долг») as of now, or null; every credit for the streak and the history. */
+export async function loadCredit(now: number = Date.now()): Promise<{ credit: CreditState | null; credits: Credit[] }> {
+  const s = useSettings.getState();
+  const credits = await listCredits();
+  const last = credits.at(-1) ?? null;
+  if (!last) return { credit: null, credits };
+  const done = await getCountsSince(last.day);
+  const credit = creditState({ credit: last, goal: s.dailyGoal, done, today: dayKey(new Date(now)) });
+  return { credit, credits };
+}
+
 /**
- * Today's flash-card minimum from the deck and today's answers; also returns the deck it was computed from. Recomputed
- * on every load: until the goal is reached, cards that become pending later (e.g. a newly learned algorithm) are asked
- * for again.
+ * Today's single goal from the deck, today's ✓ answers and learned algorithms (`studyDay`); also returns what it was
+ * computed from. Recomputed on every load.
  */
-export async function loadCardDay(now: number = Date.now()): Promise<{ cards: CardDay; deck: DeckCard[] }> {
+export async function loadStudyDay(
+  now: number = Date.now(),
+  credit?: CreditState | null,
+): Promise<{
+  day: StudyDay;
+  deck: DeckCard[];
+  credit: CreditState | null;
+  reviewedToday: { slug: string; ts: number }[];
+  learnedToday: (LearnedToday & { slug: string })[];
+  unlearned: number;
+}> {
   const s = useSettings.getState();
   const today = new Date(now);
-  const [deck, stats] = await Promise.all([getCardDeck(), getCardDayStats(today)]);
-  const cards = cardDay({
+  const [deck, reviewedToday, learnedToday, unlearned, loaded] = await Promise.all([
+    getCardDeck(),
+    getCardDayStats(today),
+    getTodayLearned(today),
+    getUnlearnedCount(),
+    credit === undefined ? loadCredit(now).then((c) => c.credit) : Promise.resolve(credit),
+  ]);
+  const day = studyDay({
     deck,
-    reviewed: stats.reviewed,
-    aheadReviewed: stats.aheadReviewed,
-    goal: s.cardDailyGoal,
-    ahead: s.cardAheadCount,
+    reviewed: reviewedToday.map((r) => r.slug),
+    learned: learnedToday.map((l) => l.slug),
+    goal: loaded ? loaded.part.todayGoal : s.dailyGoal,
     capacity: s.cardBoxOneSize,
+    unlearned,
     today,
   });
-  return { cards, deck };
+  return { day, deck, credit: loaded, reviewedToday, learnedToday, unlearned };
 }
 
 /** Everything the adaptive budget needs for today, loaded from the DB and settings. */
@@ -33,60 +70,76 @@ export interface DayBudget {
   now: number;
   start: number;
   deadline: number;
-  goal: number;
+  /** Today's goal and what is left of it (reviews first, then new algorithms). */
+  day: StudyDay;
+  /** The latest credit, or null. */
+  credit: CreditState | null;
+  /** Algorithms learned today (first time each), oldest first. */
   learned: LearnedToday[];
-  /** Next unlearned algorithms in suggestion order (at least the remaining goal, at least 3). */
+  /** Next unlearned algorithms in suggestion order (today's and tomorrow's new ones, at least 3). */
   next: AlgoRow[];
   upcoming: UpcomingAlgo[];
-  /** Today's flash-card minimum. */
-  cards: CardDay;
-  /** Cards the native side should plan/require for the next day until JS syncs again (bounded by the deck). */
-  cardGoalTomorrow: number;
+  /** Learned algorithms with their Leitner state. */
+  deck: DeckCard[];
+  /** Tomorrow's split if nothing more is done today (native fallback when a new day starts before the next sync). */
+  tomorrow: { cards: number; algos: number };
   cardCostMs: number;
-  /** What's still to do today: the remaining algorithms with the remaining cards in groups between them. */
+  /** What's still to do today: the new algorithms with the reviews in groups between them. */
   items: DayItem[];
-  /** Algorithm goal and card minimum both met: nothing is blocked. */
+  /** The goal is met (or nothing is left to do): nothing is blocked. */
   goalMet: boolean;
   granted: number;
-  /** Learning time reserved for the rest of today's goal and cards. */
+  /** Learning time reserved for the rest of today's goal. */
   reserve: number;
 }
 
 export async function loadDayBudget(now: number = Date.now()): Promise<DayBudget> {
   const s = useSettings.getState();
-  const goal = s.dailyGoal;
-  const [learned, next, { cards, deck }] = await Promise.all([
-    getTodayLearned(new Date(now)),
-    getNextUnlearned(Math.max(goal, 3)),
-    loadCardDay(now),
-  ]);
+  const { credit } = await loadCredit(now);
+  const { day, deck, reviewedToday, learnedToday, unlearned } = await loadStudyDay(now, credit);
+  const tomorrow = splitTomorrow({
+    deck,
+    goal: s.dailyGoal + (credit?.part.dueTomorrow ?? 0),
+    capacity: s.cardBoxOneSize,
+    unlearned: unlearned - day.algos,
+    today: new Date(now),
+  });
+  const next = await getNextUnlearned(Math.max(day.algos + tomorrow.algos, 3));
   const cost = (d: Difficulty) => algoCostMs(d, s.learnMinutes, s.difficultyFactors);
   const upcoming = next.map((a) => ({ difficulty: a.difficulty, costMs: cost(a.difficulty), title: displayTitle(a) }));
-  const left = Math.max(0, goal - learned.length);
   const cardCostMs = s.cardMinutes * 60_000;
-  const cardReserve = cards.left * cardCostMs;
+  const items = planItems(upcoming.slice(0, day.algos), day.cards, cardCostMs);
   const deadline = atHour(now, s.reminderEndHour);
+  // Every success today earns time: learned algorithms at their cost, cards answered ✓ at the card cost.
+  const events = [
+    ...learnedToday.map((l) => ({ ts: l.ts, costMs: cost(l.difficulty) })),
+    ...reviewedToday
+      .filter((r) => !learnedToday.some((l) => l.slug === r.slug))
+      .map((r) => ({ ts: r.ts, costMs: cardCostMs })),
+  ].sort((a, b) => a.ts - b.ts);
   return {
     now,
     start: atHour(now, s.reminderStartHour),
     deadline,
-    goal,
-    learned,
+    day,
+    credit,
+    learned: learnedToday,
     next,
     upcoming,
-    cards,
-    cardGoalTomorrow: Math.min(s.cardDailyGoal, deck.length),
+    deck,
+    tomorrow,
     cardCostMs,
-    items: planItems(upcoming.slice(0, left), cards.left, cardCostMs),
-    goalMet: left === 0 && cards.left === 0,
+    items,
+    goalMet: day.left === 0,
     granted: grantedMs(
-      learned.map((l) => ({ ts: l.ts, costMs: cost(l.difficulty) })),
-      goal,
+      events,
+      events.length + items.length,
       deadline,
-      upcoming,
+      items.map((i) => ({ difficulty: 'easy' as const, costMs: i.costMs })),
       s.minutesPerAlgo * 60_000,
-      cardReserve,
+      0,
+      s.learnMinutes * 60_000,
     ),
-    reserve: reserveMs(left, upcoming) + cardReserve,
+    reserve: items.reduce((sum, i) => sum + i.costMs, 0),
   };
 }

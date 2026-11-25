@@ -12,13 +12,23 @@ class AlarmReceiver : BroadcastReceiver() {
   companion object {
     const val ACTION_RING = "expo.modules.studyalarms.RING"
     const val ACTION_DISMISS = "expo.modules.studyalarms.DISMISS"
+    const val ACTION_SNOOZE = "expo.modules.studyalarms.SNOOZE"
+    /** The ring's one-minute timeout (AlarmRinger.stopLater). */
+    const val ACTION_STOP = "expo.modules.studyalarms.STOP"
   }
 
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.action) {
-      ACTION_DISMISS -> AlarmNotification.cancel(context)
+      ACTION_DISMISS, ACTION_STOP -> AlarmRinger.stop(context)
+      ACTION_SNOOZE -> {
+        AlarmRinger.stop(context)
+        AlarmScheduler.snooze(context, AlarmScheduler.itemFrom(intent))
+      }
       ACTION_RING -> {
-        AlarmNotification.show(context, AlarmScheduler.itemFrom(intent))
+        val item = AlarmScheduler.itemFrom(intent)
+        // A snoozed alarm stays silent once its algorithm was learned (or today's cards are done) in the meantime.
+        val snoozed = intent.getBooleanExtra(AlarmScheduler.EXTRA_SNOOZED, false)
+        if (!snoozed || AlarmScheduler.stillToDo(context, item)) AlarmNotification.show(context, item)
         AlarmScheduler.reschedule(context)
       }
     }

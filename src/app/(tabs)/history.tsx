@@ -4,8 +4,9 @@ import { useMemo } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { DifficultyBadge } from '@/components/DifficultyBadge';
-import { getHistory } from '@/db/repo';
+import { getDailySuccess, getHistory, listCredits } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
+import { borrowedByDay } from '@/logic/credit';
 import { lastDays } from '@/logic/dates';
 import { formatDayHeader, groupHistory, type HistoryEntry } from '@/logic/history';
 import { useSettings } from '@/store/settings';
@@ -22,6 +23,10 @@ export default function HistoryScreen() {
   const historyDays = useSettings((s) => s.historyDays);
   const dailyGoal = useSettings((s) => s.dailyGoal);
   const rows = useQuery(() => getHistory(historyDays), String(historyDays));
+  const credits = useQuery(listCredits, 'credits');
+  const success = useQuery(() => getDailySuccess(historyDays), `success${historyDays}`);
+  const borrowed = useMemo(() => borrowedByDay(credits ?? []), [credits]);
+  const creditDays = useMemo(() => new Set((credits ?? []).map((c) => c.day)), [credits]);
 
   const sections = useMemo(() => {
     if (!rows) return [];
@@ -41,29 +46,42 @@ export default function HistoryScreen() {
       keyExtractor={(item, i) => (item ? `${item.kind}:${item.slug}` : `empty${i}`)}
       stickySectionHeadersEnabled
       contentContainerStyle={styles.listContent}
-      renderSectionHeader={({ section }) => (
-        <View style={[styles.header, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-            {section.title}
-          </Text>
-          {section.refreshed > 0 && (
-            <View style={styles.headerStat}>
-              <Ionicons name="albums-outline" size={15} color={colors.primary} />
-              <Text style={[styles.counter, { color: colors.primary }]}>{section.refreshed}</Text>
-            </View>
-          )}
-          <View style={styles.headerStat}>
-            <Ionicons
-              name="school-outline"
-              size={16}
-              color={section.learned >= dailyGoal ? colors.success : colors.textMuted}
-            />
-            <Text style={[styles.counter, { color: section.learned >= dailyGoal ? colors.success : colors.textMuted }]}>
-              {section.learned} алг.
+      renderSectionHeader={({ section }) => {
+        // Successes (✓ reviews and new algorithms) against the goal; a credit («Взять в долг») lowers that day's goal.
+        const done = success?.[section.day] ?? 0;
+        const met = done >= dailyGoal - (borrowed[section.day] ?? 0);
+        return (
+          <View style={[styles.header, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+              {section.title}
             </Text>
+            {creditDays.has(section.day) && (
+              <View style={styles.headerStat}>
+                <Ionicons name="hourglass-outline" size={14} color={colors.difficulty.medium} />
+                <Text style={[styles.counter, { color: colors.difficulty.medium }]}>в долг</Text>
+              </View>
+            )}
+            {section.refreshed > 0 && (
+              <View style={styles.headerStat}>
+                <Ionicons name="albums-outline" size={15} color={colors.primary} />
+                <Text style={[styles.counter, { color: colors.primary }]}>{section.refreshed}</Text>
+              </View>
+            )}
+            {section.learned > 0 && (
+              <View style={styles.headerStat}>
+                <Ionicons name="school-outline" size={16} color={colors.textMuted} />
+                <Text style={[styles.counter, { color: colors.textMuted }]}>{section.learned}</Text>
+              </View>
+            )}
+            <View style={styles.headerStat}>
+              <Ionicons name="flag-outline" size={15} color={met ? colors.success : colors.textMuted} />
+              <Text style={[styles.counter, { color: met ? colors.success : colors.textMuted }]}>
+                {done}/{dailyGoal}
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
+        );
+      }}
       renderItem={({ item }) =>
         item ? (
           <Pressable

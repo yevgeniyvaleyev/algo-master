@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DailyBars, Meter, ProgressRing, StackedMeter } from '@/components/charts';
 import { CardBoxes } from '@/components/CardBoxes';
+import { CreditModal } from '@/components/CreditModal';
 import { CARDS_COLOR, DayTimeline } from '@/components/DayTimeline';
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { displayTitle } from '@/content/format';
@@ -15,19 +16,23 @@ import {
   getCardDeck,
   getCardRefreshStats,
   getDailyCounts,
+  getDailySuccess,
   getDifficultyStats,
   getInProgress,
   getLearnedTimes,
   getTopicStats,
   getTotalLearnEvents,
+  listCredits,
   type AlgoRow,
 } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
 import { dayKey, lastDays } from '@/logic/dates';
+import { takeCredit } from '@/logic/actions';
 import { availableMs, dayTimeline } from '@/logic/budget';
+import { borrowedByDay, canTakeCredit, creditLine } from '@/logic/credit';
 import { loadDayBudget } from '@/logic/day-budget';
 import { boxCounts, dueByBox, dueCount } from '@/logic/leitner';
-import { forecastFinish, recentPace, sustainable } from '@/logic/forecast';
+import { forecastFinish, recentPace } from '@/logic/forecast';
 import { computeStreak } from '@/logic/progress';
 import { useSettings } from '@/store/settings';
 import { useColors } from '@/theme';
@@ -36,21 +41,9 @@ const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 async function loadDashboard() {
-  const [counts, byDifficulty, byTopic, totalEvents, budget, learnedTimes, cardRefresh, deck, inProgress] =
-    await Promise.all([
-      getDailyCounts(366),
-      getDifficultyStats(),
-      getTopicStats(),
-      getTotalLearnEvents(),
-      loadDayBudget(),
-      getLearnedTimes(),
-      getCardRefreshStats(),
-      getCardDeck(),
-      getInProgress(),
-    ]);
-  // Expo Go has no blocker, so nothing has been used there.
-  return {
+  const [
     counts,
+    success,
     byDifficulty,
     byTopic,
     totalEvents,
@@ -59,6 +52,33 @@ async function loadDashboard() {
     cardRefresh,
     deck,
     inProgress,
+    credits,
+  ] = await Promise.all([
+    getDailyCounts(366),
+    getDailySuccess(366),
+    getDifficultyStats(),
+    getTopicStats(),
+    getTotalLearnEvents(),
+    loadDayBudget(),
+    getLearnedTimes(),
+    getCardRefreshStats(),
+    getCardDeck(),
+    getInProgress(),
+    listCredits(),
+  ]);
+  // Expo Go has no blocker, so nothing has been used there.
+  return {
+    counts,
+    success,
+    byDifficulty,
+    byTopic,
+    totalEvents,
+    budget,
+    learnedTimes,
+    cardRefresh,
+    deck,
+    inProgress,
+    borrowed: borrowedByDay(credits),
     usedMs: AppBlocker?.getUsedMs() ?? 0,
   };
 }
@@ -130,11 +150,11 @@ function useNow(): number {
 
 export default function DashboardScreen() {
   const colors = useColors();
-  const goal = useSettings((s) => s.dailyGoal);
-  const autoUnmark = useSettings((s) => s.autoUnmark);
-  const expireDays = useSettings((s) => s.expireDays);
+  const baseGoal = useSettings((s) => s.dailyGoal);
   const blocking = useSettings((s) => s.blockedPackages.length > 0) && AppBlocker != null;
-  const alarms = useSettings((s) => s.alarmsEnabled) && StudyAlarms != null;
+  const algoAlarms = useSettings((s) => s.alarmsEnabled);
+  const cardAlarms = useSettings((s) => s.cardAlarmsEnabled);
+  const alarms = (algoAlarms || cardAlarms) && StudyAlarms != null;
   const boxOneSize = useSettings((s) => s.cardBoxOneSize);
   // The budget reads these settings, so reload when any of them changes.
   const budgetKey = useSettings((s) =>
@@ -146,8 +166,6 @@ export default function DashboardScreen() {
       s.difficultyFactors,
       s.reminderStartHour,
       s.reminderEndHour,
-      s.cardDailyGoal,
-      s.cardAheadCount,
       s.cardMinutes,
       s.cardBoxOneSize,
     ]),
@@ -155,15 +173,17 @@ export default function DashboardScreen() {
   const data = useQuery(loadDashboard, budgetKey);
   const now = useNow();
   const [range, setRange] = useState<7 | 30>(7);
+  const [creditOpen, setCreditOpen] = useState(false);
 
   if (!data) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
 
+  // Algorithms learned today (the forecast); the goal counts every success (`b.day`).
   const today = data.counts[dayKey()] ?? 0;
-  const streak = computeStreak(data.counts, goal);
+  const streak = computeStreak(data.success, baseGoal, undefined, data.borrowed);
   const learned = data.byDifficulty.reduce((s, d) => s + d.learned, 0);
   const total = data.byDifficulty.reduce((s, d) => s + d.total, 0);
   const days = lastDays(range);
-  const chart = days.map((d) => data.counts[d] ?? 0);
+  const chart = days.map((d) => data.success[d] ?? 0);
   const weekdays = days.map((d) => WEEKDAYS[new Date(`${d}T00:00:00`).getDay()]);
   const b = data.budget;
   const available = availableMs(now, b.goalMet, b.granted, data.usedMs, b.deadline, b.reserve);
@@ -175,67 +195,60 @@ export default function DashboardScreen() {
     items: b.items,
     goalMet: b.goalMet,
     available,
+    rings: alarms ? { algo: algoAlarms, cards: cardAlarms } : undefined,
   });
-  const firstItem = b.items[0];
+  // The block the next alarm (or plan mark) is for.
+  const firstItem = b.items[timeline.nextAlarmIndex ?? 0];
   const nextTitle =
     firstItem == null ? undefined : firstItem.kind === 'cards' ? `Карточки: ${firstItem.count}` : firstItem.title;
-  const cards = b.cards;
-  const cardsDone = cards.goal > 0 && cards.target > 0 && cards.left === 0;
-  // Green only for really reaching the goal; running out of cards (cardsDone, «больше нет») is not shown as success.
-  const cardsGoalMet = cards.goal > 0 && cards.reviewed >= cards.goal;
+  const d = b.day;
+  // Green only for really reaching the goal; running out of things to do isn't shown as success.
+  const goalReached = d.done >= d.goal;
   const next = b.next.slice(0, 3);
 
-  // Forecast of the day everything is learned at once: by the daily goal and by the pace of the last two weeks.
-  const expiry = autoUnmark ? expireDays : null;
+  // Forecast of the day everything is learned, by the pace of new algorithms over the last two weeks.
   const pace = recentPace(data.counts, lastDays(PACE_DAYS + 1).slice(0, PACE_DAYS));
-  const forecastBase = { total, learnedAt: data.learnedTimes, learnedToday: today, expireDays: expiry, now };
-  const byPlan = forecastFinish({ ...forecastBase, perDay: goal });
-  const byPace = forecastFinish({ ...forecastBase, perDay: pace });
-  const planLimits = sustainable(total, goal, expiry);
+  const byPace = forecastFinish({ total, learnedAt: data.learnedTimes, learnedToday: today, now, perDay: pace });
+  const debt = creditLine(b.credit);
+  const mayBorrow = canTakeCredit(b.credit, d.left);
   const allLearned = learned >= total && total > 0;
   const card = [styles.card, { backgroundColor: colors.surface, borderColor: colors.border }];
 
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.content}>
       <View style={[card, styles.todayCard]}>
-        <ProgressRing
-          value={today}
-          goal={goal}
-          inner={
-            cards.goal > 0 ? { value: cards.reviewed, goal: cards.goal, color: CARDS_COLOR, label: 'карт.' } : undefined
-          }
-        />
+        <ProgressRing value={d.done} goal={d.goal} />
         <View style={styles.todayInfo}>
           <Text style={[styles.todayTitle, { color: colors.text }]}>
-            {today < goal || cards.left > 0 ? 'Сегодня' : 'Цель на сегодня выполнена!'}
+            {d.left > 0 ? 'Сегодня' : goalReached ? 'Цель на сегодня выполнена!' : 'На сегодня всё'}
           </Text>
           <View style={styles.statRow}>
             <Ionicons
-              name={today >= goal ? 'checkmark-circle' : 'school'}
+              name={goalReached ? 'checkmark-circle' : 'flag'}
               size={18}
-              color={today >= goal ? colors.success : colors.primary}
+              color={goalReached ? colors.success : colors.primary}
             />
             <Text style={{ color: colors.text }}>
-              Алгоритмы: {today}/{goal}
+              Цель: {d.done}/{d.goal}
             </Text>
           </View>
           <View style={styles.statRow}>
-            <Ionicons
-              name={cardsGoalMet ? 'checkmark-circle' : 'albums'}
-              size={18}
-              color={cardsGoalMet ? colors.success : CARDS_COLOR}
-            />
+            <Ionicons name="albums" size={18} color={CARDS_COLOR} />
             <Text style={{ color: colors.text }}>
-              {cards.goal > 0
-                ? `Карточки: ${cards.reviewed}/${cards.goal}` +
-                  (cards.target === 0 && cards.reviewed === 0
-                    ? ' — пока нечего повторять'
-                    : cardsDone && cards.reviewed < cards.goal
-                      ? ' — больше нет'
-                      : '')
-                : `Карточки: ${cards.reviewed}`}
+              Повторено: {d.reviewed} · новых: {d.learned}
             </Text>
           </View>
+          {d.left > 0 && (
+            <View style={styles.statRow}>
+              <Ionicons name="list" size={18} color={colors.textMuted} />
+              <Text style={{ color: colors.text, flex: 1 }}>
+                Осталось:{' '}
+                {[d.cards > 0 ? `${d.cards} карт.` : '', d.algos > 0 ? `${d.algos} нов.` : '']
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+            </View>
+          )}
           <View style={styles.statRow}>
             <Ionicons name="flame" size={18} color={colors.difficulty.medium} />
             <Text style={{ color: colors.text }}>Серия: {streak} дн.</Text>
@@ -256,8 +269,37 @@ export default function DashboardScreen() {
               <Text style={{ color: colors.text }}>Развлечения: {formatLeft(available)}</Text>
             </View>
           )}
+          {debt && (
+            <View style={styles.statRow}>
+              <Ionicons
+                name="hourglass"
+                size={18}
+                color={b.credit?.overdue ? colors.difficulty.medium : colors.textMuted}
+              />
+              <Text style={{ color: b.credit?.overdue ? colors.difficulty.medium : colors.text, flex: 1 }}>{debt}</Text>
+            </View>
+          )}
+          {mayBorrow && (
+            <Pressable
+              onPress={() => setCreditOpen(true)}
+              style={({ pressed }) => [
+                styles.creditButton,
+                { borderColor: colors.border },
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <Ionicons name="hourglass-outline" size={16} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>Взять в долг</Text>
+            </Pressable>
+          )}
         </View>
       </View>
+      <CreditModal
+        visible={creditOpen}
+        left={d.left}
+        onSubmit={(c) => void takeCredit({ ...c, day: dayKey() })}
+        onClose={() => setCreditOpen(false)}
+      />
 
       {b.start < b.deadline && (
         <View style={card}>
@@ -292,41 +334,20 @@ export default function DashboardScreen() {
         <Text style={[styles.cardTitle, { color: colors.text }]}>Прогноз</Text>
         {allLearned ? (
           <Text style={[styles.forecastMain, { color: colors.success }]}>Все алгоритмы изучены</Text>
-        ) : byPlan ? (
+        ) : byPace ? (
           <View>
-            <Text style={[styles.forecastMain, { color: colors.text }]}>Всё изучено к {formatDate(byPlan.date)}</Text>
+            <Text style={[styles.forecastMain, { color: colors.text }]}>Всё изучено к {formatDate(byPace.date)}</Text>
             <Text style={{ color: colors.textMuted }}>
-              {byPlan.days === 0 ? 'сегодня' : `через ${byPlan.days} дн.`} при цели {goal} в день
+              {byPace.days === 0 ? 'сегодня' : `через ${byPace.days} дн.`} в твоём темпе ({formatPace(pace)} новых в
+              день)
             </Text>
           </View>
         ) : (
-          <Text style={{ color: colors.danger }}>
-            С целью {goal} в день и снятием отметок через {expireDays} дн. изученными одновременно держатся не больше{' '}
-            {planLimits.maxHeld} из {total}. Увеличь цель до {planLimits.goalNeeded} в день или срок отметки до{' '}
-            {planLimits.daysNeeded} дн.
+          <Text style={{ color: colors.textMuted }}>
+            {pace === 0
+              ? `За ${PACE_DAYS} дн. ничего не изучено — прогноз по темпу недоступен`
+              : `В твоём темпе (${formatPace(pace)} в день) — больше 10 лет`}
           </Text>
-        )}
-        {!allLearned && (
-          <View style={styles.forecastRows}>
-            <View style={styles.statRow}>
-              <Ionicons name="speedometer" size={18} color={colors.primary} />
-              <Text style={{ color: colors.text, flex: 1 }}>
-                {pace === 0
-                  ? `За ${PACE_DAYS} дн. ничего не изучено — прогноз по темпу недоступен`
-                  : byPace
-                    ? `В твоём темпе (${formatPace(pace)} в день): к ${formatDate(byPace.date)}`
-                    : `В твоём темпе (${formatPace(pace)} в день) повторения не дают закончить`}
-              </Text>
-            </View>
-            {autoUnmark && byPlan && (
-              <View style={styles.statRow}>
-                <Ionicons name="refresh" size={18} color={colors.difficulty.medium} />
-                <Text style={{ color: colors.text, flex: 1 }}>
-                  Отметки снимаются через {expireDays} дн.: по пути придётся повторить ≈ {byPlan.refreshes}
-                </Text>
-              </View>
-            )}
-          </View>
         )}
       </View>
 
@@ -341,24 +362,12 @@ export default function DashboardScreen() {
             <StatTile label="Повторено всего" value={data.cardRefresh.total} color={colors.primary} />
             <StatTile label="К повтору" value={dueCount(data.deck, boxOneSize)} color={colors.difficulty.medium} />
           </View>
-          {cards.goal > 0 && (
-            <>
-              <Meter
-                label={cards.left === 0 ? 'Сегодня — готово' : 'Сегодня'}
-                value={cards.reviewed}
-                total={cards.target}
-                color={colors.success}
-              />
-              {cards.target < cards.goal && (
-                <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  {cards.ahead.length > 0
-                    ? 'Повторять нечего — ближайшие карточки заранее'
-                    : `Больше карточек на сегодня нет (цель ${cards.goal})`}
-                </Text>
-              )}
-            </>
-          )}
-          <CardBoxes {...boxCounts(data.deck)} due={dueByBox(data.deck, boxOneSize)} wide />
+          <CardBoxes
+            unlearned={Math.max(0, total - learned)}
+            {...boxCounts(data.deck)}
+            due={dueByBox(data.deck, boxOneSize)}
+            wide
+          />
         </Pressable>
       )}
 
@@ -402,7 +411,7 @@ export default function DashboardScreen() {
             ))}
           </View>
         </View>
-        <DailyBars values={chart} goal={goal} labels={range === 7 ? weekdays : undefined} />
+        <DailyBars values={chart} goal={baseGoal} labels={range === 7 ? weekdays : undefined} />
       </View>
 
       {data.byTopic.length > 0 && (
@@ -427,6 +436,17 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 16, gap: 14 },
   todayCard: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  creditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
   todayInfo: { flex: 1, gap: 8 },
   todayTitle: { fontSize: 17, fontWeight: '700' },
   statRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

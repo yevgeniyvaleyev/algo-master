@@ -1,22 +1,24 @@
 /**
- * Card gate («Карточки при входе»): before the app can be used, N flash cards must be answered (✓ or ✗). It opens on
+ * Card gate («Карточки при входе», 0 = off, the default): before the app can be used, N flash cards must be answered
+ * (✓ or ✗). It opens on
  * a cold start and when the app returns after GATE_AWAY_MS in the background; links that open an algorithm (the study
  * alarm's «Начать») skip it.
  */
 export const GATE_AWAY_MS = 10 * 60_000;
 
 export function shouldGate({
-  enabled,
+  count,
   deckSize,
   awayMs,
 }: {
-  enabled: boolean;
+  /** «Карточки при входе»: cards to answer; 0 = off. */
+  count: number;
   /** Learned algorithms (flash cards); without any there is nothing to answer. */
   deckSize: number;
   /** Time spent outside the app; Infinity on a cold start. */
   awayMs: number;
 }): boolean {
-  return enabled && deckSize > 0 && awayMs >= GATE_AWAY_MS;
+  return count > 0 && deckSize > 0 && awayMs >= GATE_AWAY_MS;
 }
 
 /**

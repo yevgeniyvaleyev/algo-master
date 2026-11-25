@@ -6,11 +6,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, AppState, Linking, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { checkpoint, runAutoBackup } from '@/backup/backup';
 import { CardGate } from '@/components/CardGate';
 import { manifest } from '@/content';
 import { migrate } from '@/db/client';
 import { getCardDeck, runSeed } from '@/db/repo';
-import { runExpiration } from '@/logic/actions';
 import { BACKGROUND_SETTING_KEYS, syncBackground } from '@/logic/background';
 import { isStudyLink, shouldGate } from '@/logic/card-gate';
 import { ensureNotificationPermission } from '@/notifications/reminders';
@@ -22,24 +22,23 @@ async function bootstrap() {
   await migrate();
   await runSeed(manifest);
   await useSettings.getState().hydrate();
-  await runExpiration();
   if (useSettings.getState().remindersEnabled) await ensureNotificationPermission();
   await syncBackground();
+  void runAutoBackup();
 }
 
 /** When a study link (alarm «Начать»: an algorithm or the cards) last opened the app; the gate stays away right after one. */
 let algoLinkAt = 0;
 const ALGO_LINK_GRACE_MS = 10_000;
 
-/** Opens the card gate if it's on, there are cards and the app was away long enough (Infinity = cold start). */
+/** Opens the card gate if it's on (count > 0), there are cards and the app was away long enough (Infinity = cold start). */
 async function maybeGate(awayMs: number): Promise<void> {
-  const { cardGateEnabled, cardGateCount } = useSettings.getState();
-  if (!cardGateEnabled || useCardGate.getState().remaining > 0) return;
+  const { cardGateCount } = useSettings.getState();
+  if (cardGateCount <= 0 || useCardGate.getState().remaining > 0) return;
   const deck = await getCardDeck();
   // Checked after the await: the link event may arrive just after the app became active.
   if (Date.now() - algoLinkAt < ALGO_LINK_GRACE_MS) return;
-  if (shouldGate({ enabled: cardGateEnabled, deckSize: deck.length, awayMs }))
-    useCardGate.getState().start(cardGateCount);
+  if (shouldGate({ count: cardGateCount, deckSize: deck.length, awayMs })) useCardGate.getState().start(cardGateCount);
 }
 
 export default function RootLayout() {
@@ -60,14 +59,15 @@ export default function RootLayout() {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background') {
         backgroundAt ??= Date.now();
+        void checkpoint();
         return;
       }
       if (state !== 'active') return;
       const awayMs = backgroundAt == null ? 0 : Date.now() - backgroundAt;
       backgroundAt = null;
       void maybeGate(awayMs);
-      // The day may have changed, or marks expired, while the app was in the background.
-      void runExpiration().then(syncBackground);
+      // The day may have changed while the app was in the background.
+      void syncBackground().then(() => runAutoBackup());
     });
     const links = Linking.addEventListener('url', ({ url }) => {
       if (!isStudyLink(url)) return;
@@ -122,7 +122,13 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="algo/[slug]" options={{ title: '' }} />
           <Stack.Screen name="solution-editor/[slug]" options={{ title: 'Моё решение' }} />
+          <Stack.Screen name="note-editor/[slug]" options={{ title: 'Заметка' }} />
           <Stack.Screen name="blocked-apps" options={{ title: 'Блокируемые приложения' }} />
+          <Stack.Screen name="card-stats" options={{ title: 'Статистика карточек' }} />
+          <Stack.Screen
+            name="alarm-preview"
+            options={{ headerShown: false, presentation: 'transparentModal', animation: 'fade' }}
+          />
         </Stack>
         {gated && <CardGate />}
       </ThemeProvider>

@@ -26,6 +26,7 @@ object BlockerStore {
       .putBoolean("enabled", config.enabled)
       .putStringSet("blocked", config.blockedPackages.toSet())
       .putInt("goal", config.dailyGoal)
+      .putInt("goalTomorrow", config.goalTomorrow)
       .putInt("learned", config.learnedToday)
       .putLong("grantedMs", config.grantedMs.toLong())
       .putLong("deadlineMs", config.deadlineMs.toLong())
@@ -43,7 +44,11 @@ object BlockerStore {
     return p.getBoolean("enabled", false) && p.getStringSet("blocked", emptySet())?.contains(pkg) == true
   }
 
-  fun goal(ctx: Context): Int = prefs(ctx).getInt("goal", 3)
+  /** Today's algorithm goal; on a new day tomorrow's (a credit being repaid raises it) until JS syncs again. */
+  fun goal(ctx: Context): Int {
+    val p = prefs(ctx)
+    return if (isToday(ctx)) p.getInt("goal", 3) else p.getInt("goalTomorrow", p.getInt("goal", 3))
+  }
 
   /** Learned today; a config written on an earlier day counts as 0 (new day, nothing learned yet). */
   fun learnedToday(ctx: Context): Int {

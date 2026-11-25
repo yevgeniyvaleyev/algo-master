@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CardReview } from '@/components/CardReview';
 import { saveCardWrites } from '@/logic/actions';
 import { cardsWord } from '@/logic/card-gate';
-import { loadCardDay } from '@/logic/day-budget';
+import { getCardDeck } from '@/db/repo';
 import { startSession, type Session } from '@/logic/leitner';
 import { useCardGate } from '@/store/card-gate';
 import { useSettings } from '@/store/settings';
@@ -27,9 +27,10 @@ export function CardGate() {
 
   useEffect(() => {
     let cancelled = false;
-    loadCardDay().then(({ deck, cards }) => {
+    // Reviews only: new algorithms aren't learned at the gate, so it closes once nothing is pending.
+    getCardDeck().then((deck) => {
       if (cancelled) return;
-      const started = startSession(deck, { capacity, ahead: cards.ahead });
+      const started = startSession(deck, { capacity });
       void saveCardWrites(started.writes);
       if (started.session.queue.length === 0) clear();
       else setSession(started.session);

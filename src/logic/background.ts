@@ -15,10 +15,15 @@ export const BACKGROUND_SETTING_KEYS = [
   'difficultyFactors',
   'blockedPackages',
   'alarmsEnabled',
-  'cardDailyGoal',
-  'cardAheadCount',
   'cardMinutes',
   'cardBoxOneSize',
+  'reminderVibration',
+  'alarmVibration',
+  'cardAlarmsEnabled',
+  'alarmSnoozeMinutes',
+  'alarmVibrationRepeat',
+  'alarmVibrationTimes',
+  'alarmSound',
 ] as const;
 
 /** Brings reminders, study alarms and the native app blocker in line with the current progress and settings. */

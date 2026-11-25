@@ -1,10 +1,10 @@
 import * as repo from '@/db/repo';
 import { useDataVersion } from '@/store/data-version';
-import { useSettings } from '@/store/settings';
 
 import { syncBackground } from './background';
+import type { Credit } from './credit';
 import type { CardWrite } from './leitner';
-import { expirationCutoff, type AlgoStatus } from './progress';
+import type { AlgoStatus } from './progress';
 
 const bump = () => useDataVersion.getState().bump();
 
@@ -42,11 +42,10 @@ export const deleteTopic = mutation(repo.deleteTopic);
 export const moveAlgo = mutation(repo.moveAlgo);
 export const saveCustomSolution = mutation(repo.saveCustomSolution);
 export const deleteCustomSolution = mutation(repo.deleteCustomSolution);
-
-/** Applies auto-unmark expiration; called on startup and when the app returns to foreground. */
-export async function runExpiration(): Promise<void> {
-  const { autoUnmark, expireDays } = useSettings.getState();
-  const cutoff = expirationCutoff(autoUnmark, expireDays);
-  if (cutoff == null) return;
-  if ((await repo.expireProgress(cutoff)) > 0) bump();
-}
+export const saveNote = mutation(repo.saveNote);
+export const deleteNote = mutation(repo.deleteNote);
+/** «Взять в долг»: today's goal shrinks, the next 1–2 days' grow (see credit.ts). */
+export const takeCredit = mutation(async (c: Credit) => {
+  await repo.addCredit(c);
+  void syncBackground();
+});

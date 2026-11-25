@@ -5,6 +5,8 @@ export interface BlockerConfig {
   enabled: boolean;
   blockedPackages: string[];
   dailyGoal: number;
+  /** Tomorrow's goal (a credit being repaid raises it), used on a new day before JS syncs again. */
+  goalTomorrow: number;
   learnedToday: number;
   /** Entertainment time granted today by learning (see src/logic/budget.ts). */
   grantedMs: number;

@@ -1,15 +1,23 @@
-import { addDays, dayKey, daysToMs } from './dates';
+import { addDays, dayKey } from './dates';
 
 /** Day key → number of distinct algorithms learned that day. */
 export type DailyCounts = Record<string, number>;
 
 /**
  * Consecutive days (ending today, or yesterday if today's goal is not met yet)
- * on which the daily goal was reached.
+ * on which the daily goal was reached. `borrowed` (day → algorithms taken as credit that day) lowers that day's goal.
  */
-export function computeStreak(counts: DailyCounts, goal: number, today: Date = new Date()): number {
+export function computeStreak(
+  counts: DailyCounts,
+  goal: number,
+  today: Date = new Date(),
+  borrowed: DailyCounts = {},
+): number {
   if (goal <= 0) return 0;
-  const met = (d: Date) => (counts[dayKey(d)] ?? 0) >= goal;
+  const met = (d: Date) => {
+    const key = dayKey(d);
+    return (counts[key] ?? 0) >= goal - (borrowed[key] ?? 0);
+  };
   let cursor = met(today) ? today : addDays(today, -1);
   let streak = 0;
   while (met(cursor)) {
@@ -17,12 +25,6 @@ export function computeStreak(counts: DailyCounts, goal: number, today: Date = n
     cursor = addDays(cursor, -1);
   }
   return streak;
-}
-
-/** Marks learned before this timestamp have expired, or null when auto-unmark is off. */
-export function expirationCutoff(autoUnmark: boolean, expireDays: number, now: number = Date.now()): number | null {
-  if (!autoUnmark) return null;
-  return now - daysToMs(Math.max(0, expireDays));
 }
 
 export function isGoalMet(learnedToday: number, goal: number): boolean {

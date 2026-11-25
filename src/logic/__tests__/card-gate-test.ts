@@ -2,17 +2,17 @@ import { cardsWord, GATE_AWAY_MS, isStudyLink, shouldGate } from '../card-gate';
 
 describe('shouldGate', () => {
   it('gates a cold start and a long absence', () => {
-    expect(shouldGate({ enabled: true, deckSize: 3, awayMs: Infinity })).toBe(true);
-    expect(shouldGate({ enabled: true, deckSize: 3, awayMs: GATE_AWAY_MS })).toBe(true);
+    expect(shouldGate({ count: 2, deckSize: 3, awayMs: Infinity })).toBe(true);
+    expect(shouldGate({ count: 2, deckSize: 3, awayMs: GATE_AWAY_MS })).toBe(true);
   });
 
   it('lets short app switches through', () => {
-    expect(shouldGate({ enabled: true, deckSize: 3, awayMs: GATE_AWAY_MS - 1 })).toBe(false);
+    expect(shouldGate({ count: 2, deckSize: 3, awayMs: GATE_AWAY_MS - 1 })).toBe(false);
   });
 
-  it('is off when disabled or there are no cards', () => {
-    expect(shouldGate({ enabled: false, deckSize: 3, awayMs: Infinity })).toBe(false);
-    expect(shouldGate({ enabled: true, deckSize: 0, awayMs: Infinity })).toBe(false);
+  it('is off at 0 cards or without any cards', () => {
+    expect(shouldGate({ count: 0, deckSize: 3, awayMs: Infinity })).toBe(false);
+    expect(shouldGate({ count: 2, deckSize: 0, awayMs: Infinity })).toBe(false);
   });
 });
 

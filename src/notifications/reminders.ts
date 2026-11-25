@@ -1,10 +1,9 @@
 import { isRunningInExpoGo } from 'expo';
 import { Platform } from 'react-native';
 
-import { getTodayCount } from '@/db/repo';
-import { cardsWord } from '@/logic/card-gate';
-import { loadCardDay } from '@/logic/day-budget';
-import { planReminders } from '@/logic/reminders';
+import { loadDayBudget } from '@/logic/day-budget';
+import { planReminders, reminderContent } from '@/logic/reminders';
+import { channelId, vibrationFor } from '@/logic/vibration';
 import { useSettings } from '@/store/settings';
 
 type NotificationsModule = typeof import('expo-notifications');
@@ -19,7 +18,7 @@ export const remindersSupported = !isRunningInExpoGo();
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- must not load in Expo Go
 const Notifications: NotificationsModule | null = remindersSupported ? require('expo-notifications') : null;
 
-const CHANNEL_ID = 'reminders';
+const CHANNEL_PREFIX = 'reminders';
 /** Days planned ahead, so reminders keep coming even if the app isn't opened for a while. */
 const DAYS_AHEAD = 7;
 
@@ -32,24 +31,38 @@ Notifications?.setNotificationHandler({
   }),
 });
 
-const algosWord = (n: number) => {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'алгоритм';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'алгоритма';
-  return 'алгоритмов';
-};
+/**
+ * Creates the reminder channel for the chosen vibration and returns its id. A channel's vibration can't change after
+ * it is created, so each type has its own channel (`channelId`); the other types' channels are deleted, leaving one
+ * «Напоминания» in the system settings.
+ */
+async function ensureChannel(): Promise<string> {
+  const vibration = vibrationFor(useSettings.getState().reminderVibration, 'reminder');
+  const id = channelId(CHANNEL_PREFIX, vibration.key);
+  if (!Notifications || Platform.OS !== 'android') return id;
+  const channels = await Notifications.getNotificationChannelsAsync();
+  for (const c of channels) {
+    if (c.id !== id && (c.id === CHANNEL_PREFIX || c.id.startsWith(`${CHANNEL_PREFIX}-`)))
+      await Notifications.deleteNotificationChannelAsync(c.id);
+  }
+  await Notifications.setNotificationChannelAsync(id, {
+    name: 'Напоминания',
+    description: 'Напоминания о дневной цели',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    ...(vibration.pattern == null
+      ? {}
+      : {
+          enableVibrate: vibration.pattern.length > 0,
+          vibrationPattern: vibration.pattern.length > 0 ? vibration.pattern : null,
+        }),
+  });
+  return id;
+}
 
 /** Creates the Android channel and asks for permission (Android 13+ shows a system prompt). */
 export async function ensureNotificationPermission(): Promise<boolean> {
   if (!Notifications) return false;
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      name: 'Напоминания',
-      description: 'Напоминания о дневной цели',
-      importance: Notifications.AndroidImportance.DEFAULT,
-    });
-  }
+  await ensureChannel();
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
   if (!current.canAskAgain) return false;
@@ -62,31 +75,22 @@ async function reschedule(): Promise<void> {
   const s = useSettings.getState();
   if (!s.remindersEnabled) return;
   if (!(await Notifications.getPermissionsAsync()).granted) return;
+  const channel = await ensureChannel();
 
   const now = new Date();
-  const [learnedToday, { cards }] = await Promise.all([getTodayCount(now), loadCardDay(now.getTime())]);
+  const b = await loadDayBudget(now.getTime());
   const plan = planReminders(
     { startHour: s.reminderStartHour, endHour: s.reminderEndHour, intervalHours: s.reminderIntervalHours },
-    s.dailyGoal,
-    learnedToday,
+    { goal: b.day.goal, done: b.day.done, cards: b.day.cards, algos: b.day.algos },
     now,
     DAYS_AHEAD,
-    cards.left,
+    s.dailyGoal + (b.credit?.part.dueTomorrow ?? 0),
+    s.dailyGoal,
   );
-  const cardsText = (n: number) => (n > 0 ? ` Повтори ещё ${n} ${cardsWord(n)}.` : '');
   for (const r of plan) {
-    const algosDone = r.isToday && r.remaining <= 0;
     await Notifications.scheduleNotificationAsync({
-      content: {
-        title: algosDone ? 'Карточки на сегодня не повторены' : 'Дневная цель не выполнена',
-        body: algosDone
-          ? `Алгоритмы на сегодня изучены.${cardsText(r.cardsLeft)}`
-          : r.isToday
-            ? `Изучено ${s.dailyGoal - r.remaining} из ${s.dailyGoal}. Осталось ${r.remaining} ${algosWord(r.remaining)}.` +
-              cardsText(r.cardsLeft)
-            : `Цель на сегодня — ${s.dailyGoal} ${algosWord(s.dailyGoal)}. Пора начинать!`,
-      },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date, channelId: CHANNEL_ID },
+      content: reminderContent(r),
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.date, channelId: channel },
     });
   }
 }

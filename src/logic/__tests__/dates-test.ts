@@ -30,7 +30,12 @@ describe('day start hour («Новый день с»)', () => {
   });
 
   it('plans no reminders for the rest of a finished app day', () => {
-    const plan = planReminders({ startHour: 9, endHour: 21, intervalHours: 4 }, 3, 0, at(11, 1), 2);
+    const plan = planReminders(
+      { startHour: 9, endHour: 21, intervalHours: 4 },
+      { goal: 3, done: 0, cards: 1, algos: 2 },
+      at(11, 1),
+      2,
+    );
     expect(plan.map((r) => [r.date, r.isToday])).toEqual([
       [at(11, 9), false],
       [at(11, 13), false],

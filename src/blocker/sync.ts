@@ -12,15 +12,17 @@ export async function syncBlocker(): Promise<void> {
   AppBlocker.setConfig({
     enabled: s.blockedPackages.length > 0,
     blockedPackages: s.blockedPackages,
-    dailyGoal: b.goal,
+    // The single goal as the native fields: new algorithms still planned on top of those learned, and the reviews.
+    dailyGoal: b.learned.length + b.day.algos,
+    goalTomorrow: b.tomorrow.algos,
     learnedToday: b.learned.length,
     grantedMs: b.granted,
     deadlineMs: b.deadline,
     reserveMs: b.reserve,
     day: dayKey(new Date(b.now)),
     dayStartHour: s.dayStartHour,
-    cardsLeft: b.cards.left,
-    cardGoal: b.cardGoalTomorrow,
-    cardsReviewed: b.cards.reviewed,
+    cardsLeft: b.day.cards,
+    cardGoal: b.tomorrow.cards,
+    cardsReviewed: b.day.reviewed,
   });
 }

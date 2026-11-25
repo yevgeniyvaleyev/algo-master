@@ -47,7 +47,8 @@ export function slackMs(now: number, deadline: number, reserve: number): number 
 }
 
 /**
- * Entertainment time granted by today's learn events (oldest first, with their learning cost). The k-th event shares
+ * Entertainment time granted by today's successes (oldest first, with their cost: learned algorithms and cards answered
+ * ✓; `upcoming` = what is still planned, `goal` = both together). The k-th event shares
  * the slack at that moment between itself and each algorithm still to learn: clamp(slack / (left + 1), 0, maxGrant).
  * What was ahead at an earlier event = the algorithms actually learned after it plus the start of the current
  * suggestion list. Events that meet the goal grant nothing (everything unlocks anyway).
@@ -58,8 +59,10 @@ export function grantedMs(
   deadline: number,
   upcoming: readonly UpcomingAlgo[],
   maxGrantMs: number,
-  /** Time also reserved at every event (today's remaining flash cards). */
+  /** Time also reserved at every event. */
   extraReserveMs = 0,
+  /** With it, each event's cap scales by its cost: `maxGrantMs × costMs / baseCostMs` (a card earns less). */
+  baseCostMs?: number,
 ): number {
   let total = 0;
   learned.forEach((event, i) => {
@@ -69,7 +72,8 @@ export function grantedMs(
     const reserve =
       later.reduce((sum, l) => sum + l.costMs, 0) + reserveMs(left - later.length, upcoming) + extraReserveMs;
     const slack = slackMs(event.ts, deadline, reserve);
-    total += Math.min(maxGrantMs, Math.max(0, slack / (left + 1)));
+    const cap = baseCostMs ? (maxGrantMs * event.costMs) / baseCostMs : maxGrantMs;
+    total += Math.min(cap, Math.max(0, slack / (left + 1)));
   });
   return Math.floor(total);
 }
@@ -109,8 +113,12 @@ export interface DayTimeline {
   ended: boolean;
   /** Evenly spread plan for the remaining items (see study-plan.ts), in order. */
   plan: (PlannedBlock & { item: DayItem })[];
-  /** When the next study alarm rings; null when nothing is planned. */
+  /** When the next study alarm rings; null when nothing is planned (or nothing rings). */
   nextAlarm: number | null;
+  /** Index into `plan` of the block `nextAlarm` rings for. */
+  nextAlarmIndex: number | null;
+  /** Per `plan` block: whether its kind of alarm is on (all true when alarms are off: the plan's «по плану» marks). */
+  rings: boolean[];
 }
 
 /**
@@ -128,6 +136,8 @@ export function dayTimeline(input: {
   items: readonly DayItem[];
   goalMet: boolean;
   available: number | null;
+  /** Which kinds of blocks ring an alarm; omitted = all (alarms off, the marks just show the plan). */
+  rings?: { algo: boolean; cards: boolean };
 }): DayTimeline {
   const { start, end, items: ahead, available } = input;
   const now = Math.min(end, Math.max(start, input.now));
@@ -148,6 +158,8 @@ export function dayTimeline(input: {
       ended: false,
       plan: [],
       nextAlarm: null,
+      nextAlarmIndex: null,
+      rings: [],
     };
   }
 
@@ -159,6 +171,8 @@ export function dayTimeline(input: {
     ...b,
     item: ahead[i],
   }));
+  const rings = plan.map((b) => input.rings?.[b.item.kind] ?? true);
+  const nextAlarm = nextAlarmAt(plan, input.now, rings);
 
   if (!ended) {
     const blocks = plan.filter((b) => b.start < end).map((b) => ({ ...b, end: Math.min(end, b.end) }));
@@ -188,6 +202,8 @@ export function dayTimeline(input: {
     shortageMs,
     ended,
     plan,
-    nextAlarm: nextAlarmAt(plan, input.now),
+    nextAlarm,
+    nextAlarmIndex: nextAlarm == null ? null : rings.indexOf(true),
+    rings,
   };
 }

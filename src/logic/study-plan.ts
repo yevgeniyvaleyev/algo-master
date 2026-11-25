@@ -46,8 +46,13 @@ export function planDay(input: {
   });
 }
 
-/** When the next alarm should ring for this plan; null when nothing is planned. */
-export function nextAlarmAt(plan: readonly PlannedBlock[], now: number): number | null {
-  if (plan.length === 0) return null;
-  return Math.max(plan[0].start, now + MIN_ALARM_GAP_MS);
+/**
+ * When the next study alarm rings for this plan: at the first block that rings (`rings[i]`, default all; algorithm and
+ * card alarms have separate switches), at least MIN_ALARM_GAP_MS from now. null when nothing rings. Mirrored by
+ * AlarmScheduler.computeNext.
+ */
+export function nextAlarmAt(plan: readonly PlannedBlock[], now: number, rings?: readonly boolean[]): number | null {
+  const i = plan.findIndex((_, k) => rings?.[k] !== false);
+  if (i < 0) return null;
+  return Math.max(plan[i].start, now + MIN_ALARM_GAP_MS);
 }

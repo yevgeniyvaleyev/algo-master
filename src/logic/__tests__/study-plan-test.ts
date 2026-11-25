@@ -67,4 +67,14 @@ describe('nextAlarmAt', () => {
   it('is null without a plan', () => {
     expect(nextAlarmAt([], at(9))).toBeNull();
   });
+
+  it('skips blocks whose kind of alarm is off', () => {
+    const plan = [
+      { start: at(12), end: at(12, 30) },
+      { start: at(14), end: at(14, 10) },
+    ];
+    expect(nextAlarmAt(plan, at(9), [false, true])).toBe(at(14));
+    expect(nextAlarmAt(plan, at(13, 55), [false, true])).toBe(at(13, 55) + MIN_ALARM_GAP_MS);
+    expect(nextAlarmAt(plan, at(9), [false, false])).toBeNull();
+  });
 });

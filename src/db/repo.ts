@@ -1,6 +1,8 @@
 import type { Difficulty, Manifest } from '@/content/types';
 import { addDays, dayKey } from '@/logic/dates';
 import type { HistoryEntry } from '@/logic/history';
+import type { Credit } from '@/logic/credit';
+import type { UnlearnedAlgo } from '@/logic/card-stats';
 import type { CardWrite, DeckCard } from '@/logic/leitner';
 import { learningOrder } from '@/logic/learning-order';
 import type { DailyCounts } from '@/logic/progress';
@@ -186,6 +188,8 @@ export async function setLearned(slug: string, learned: boolean, now: Date = new
       await tx.runAsync('INSERT INTO learn_log (slug, day, ts) VALUES (?, ?, ?)', slug, today, now.getTime());
     } else {
       await tx.runAsync('DELETE FROM progress WHERE slug = ?', slug);
+      // Back to «не изучены»: its flash card leaves the boxes, so learning it again starts in «ждут».
+      await tx.runAsync('DELETE FROM cards WHERE slug = ?', slug);
       // Unmarking on the same day takes the credit back, so the daily quota stays honest.
       await tx.runAsync('DELETE FROM learn_log WHERE slug = ? AND day = ?', slug, today);
     }
@@ -213,9 +217,25 @@ export async function getInProgress(): Promise<AlgoRow[]> {
 }
 
 /** Removes marks older than the cutoff. Returns how many were unmarked. */
-export async function expireProgress(cutoff: number): Promise<number> {
-  const res = await db.runAsync('DELETE FROM progress WHERE learned_at < ?', cutoff);
-  return res.changes;
+/** How many algorithms were never learned (the «не изучены» pile). */
+export async function getUnlearnedCount(): Promise<number> {
+  const row = await db.getFirstAsync<{ n: number }>(
+    'SELECT COUNT(*) AS n FROM algos WHERE slug NOT IN (SELECT slug FROM progress)',
+  );
+  return row?.n ?? 0;
+}
+
+/** Algorithms never learned (no `progress` row): the «не изучены» pile; `inProgress` = started («изучаю»). */
+export async function getUnlearned(): Promise<UnlearnedAlgo[]> {
+  const rows = await db.getAllAsync<Omit<UnlearnedAlgo, 'inProgress'> & { inProgress: number }>(
+    `SELECT a.slug, a.leetcode_id AS leetcodeId, a.title, a.difficulty,
+            CASE WHEN i.slug IS NULL THEN 0 ELSE 1 END AS inProgress
+     FROM algos a
+     LEFT JOIN progress p ON p.slug = a.slug
+     LEFT JOIN in_progress i ON i.slug = a.slug
+     WHERE p.slug IS NULL`,
+  );
+  return rows.map((r) => ({ ...r, inProgress: r.inProgress === 1 }));
 }
 
 // ---------- Custom solutions ----------
@@ -239,6 +259,59 @@ export async function deleteCustomSolution(slug: string): Promise<void> {
   await db.runAsync('DELETE FROM custom_solutions WHERE slug = ?', slug);
 }
 
+// ---------- Notes ----------
+
+export interface Note {
+  id: number;
+  slug: string;
+  title: string | null;
+  body: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+const NOTE_COLUMNS = 'id, slug, title, body, created_at AS createdAt, updated_at AS updatedAt';
+
+/** An algorithm's notes, newest first. */
+export async function listNotes(slug: string): Promise<Note[]> {
+  return db.getAllAsync<Note>(
+    `SELECT ${NOTE_COLUMNS} FROM notes WHERE slug = ? ORDER BY created_at DESC, id DESC`,
+    slug,
+  );
+}
+
+export async function getNote(id: number): Promise<Note | null> {
+  return db.getFirstAsync<Note>(`SELECT ${NOTE_COLUMNS} FROM notes WHERE id = ?`, id);
+}
+
+/** Creates a note (`id` null) or updates one; an empty title is stored as none. */
+export async function saveNote(note: { id: number | null; slug: string; title: string; body: string }): Promise<void> {
+  const now = Date.now();
+  const title = note.title.trim() || null;
+  if (note.id == null) {
+    await db.runAsync(
+      'INSERT INTO notes (slug, title, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      note.slug,
+      title,
+      note.body,
+      now,
+      now,
+    );
+  } else {
+    await db.runAsync(
+      'UPDATE notes SET title = ?, body = ?, updated_at = ? WHERE id = ?',
+      title,
+      note.body,
+      now,
+      note.id,
+    );
+  }
+}
+
+export async function deleteNote(id: number): Promise<void> {
+  await db.runAsync('DELETE FROM notes WHERE id = ?', id);
+}
+
 // ---------- Flash cards ----------
 
 /** Learned algorithms with their Leitner state (box null = waiting outside the box). */
@@ -252,7 +325,7 @@ export async function getCardDeck(): Promise<DeckCard[]> {
   );
 }
 
-/** Stores flash card moves; a ✓ answer also refreshes the learned mark (pushes back auto-unmark) and is logged. */
+/** Stores flash card moves; a ✓ answer is also logged as a refresh (`card_log`). */
 export async function saveCardWrites(writes: readonly CardWrite[], now: number = Date.now()): Promise<void> {
   if (writes.length === 0) return;
   await writeTransaction(async (tx) => {
@@ -266,7 +339,6 @@ export async function saveCardWrites(writes: readonly CardWrite[], now: number =
         now,
       );
       if (w.refreshMark) {
-        await tx.runAsync('UPDATE progress SET learned_at = ? WHERE slug = ?', now, w.slug);
         await tx.runAsync('INSERT INTO card_log (slug, day, ts) VALUES (?, ?, ?)', w.slug, dayKey(new Date(now)), now);
       }
       if (w.review) {
@@ -284,17 +356,94 @@ export async function saveCardWrites(writes: readonly CardWrite[], now: number =
 }
 
 /**
- * Distinct cards answered ✓ today and how many of them were pulled ahead of their due day. ✗ answers are logged too but
- * don't count toward the daily minimum (they only pass the entry gate); the card stays pending until it is known.
+ * Distinct cards answered ✓ today with the time of the first ✓, oldest first. ✗ answers are logged too but don't count
+ * toward the daily goal (they only pass the entry gate); the card stays pending until it is known.
  */
-export async function getCardDayStats(
-  today: Date = new Date(),
-): Promise<{ reviewed: string[]; aheadReviewed: number }> {
-  const rows = await db.getAllAsync<{ slug: string; ahead: number }>(
-    'SELECT slug, MAX(ahead) AS ahead FROM card_reviews WHERE day = ? AND known = 1 GROUP BY slug',
+export async function getCardDayStats(today: Date = new Date()): Promise<{ slug: string; ts: number }[]> {
+  return db.getAllAsync<{ slug: string; ts: number }>(
+    'SELECT slug, MIN(ts) AS ts FROM card_reviews WHERE day = ? AND known = 1 GROUP BY slug ORDER BY ts',
     dayKey(today),
   );
-  return { reviewed: rows.map((r) => r.slug), aheadReviewed: rows.filter((r) => r.ahead === 1).length };
+}
+
+export interface CardReviewTotals {
+  slug: string;
+  known: number;
+  unknown: number;
+  /** Time of the last answer and whether it was ✓. */
+  lastTs: number;
+  lastKnown: number;
+}
+
+/** Per card: ✓ and ✗ answers ever (logged since DB v7) and the last answer. */
+export async function getCardReviewTotals(): Promise<CardReviewTotals[]> {
+  return db.getAllAsync<CardReviewTotals>(
+    `SELECT r.slug, SUM(r.known) AS known, SUM(1 - r.known) AS unknown, MAX(r.ts) AS lastTs,
+            (SELECT l.known FROM card_reviews l WHERE l.slug = r.slug ORDER BY l.ts DESC, l.id DESC LIMIT 1) AS lastKnown
+     FROM card_reviews r GROUP BY r.slug`,
+  );
+}
+
+/** ✓ / ✗ answers today (every answer, not distinct cards). */
+export async function getCardAnswersToday(today: Date = new Date()): Promise<{ known: number; unknown: number }> {
+  const row = await db.getFirstAsync<{ known: number | null; unknown: number | null }>(
+    'SELECT SUM(known) AS known, SUM(1 - known) AS unknown FROM card_reviews WHERE day = ?',
+    dayKey(today),
+  );
+  return { known: row?.known ?? 0, unknown: row?.unknown ?? 0 };
+}
+
+/** Distinct cards answered ✓ per day over the last `days` days (the daily card minimum's rule). */
+export async function getCardDailyKnown(days: number, today: Date = new Date()): Promise<DailyCounts> {
+  const rows = await db.getAllAsync<{ day: string; n: number }>(
+    'SELECT day, COUNT(DISTINCT slug) AS n FROM card_reviews WHERE known = 1 AND day >= ? GROUP BY day',
+    dayKey(addDays(today, -days + 1)),
+  );
+  return Object.fromEntries(rows.map((r) => [r.day, r.n]));
+}
+
+// ---------- Credit («Взять в долг») ----------
+
+/** Every credit taken, oldest first. */
+export async function listCredits(): Promise<Credit[]> {
+  return db.getAllAsync<Credit>('SELECT day, algos, cards, days FROM credits ORDER BY id');
+}
+
+export async function addCredit(c: Credit): Promise<void> {
+  await db.runAsync(
+    'INSERT INTO credits (day, algos, cards, days, created_at) VALUES (?, ?, ?, ?, ?)',
+    c.day,
+    c.algos,
+    c.cards,
+    c.days,
+    Date.now(),
+  );
+}
+
+/** Successes per day (distinct cards answered ✓ or algorithms learned) from `sinceDay` on: a credit's repayment. */
+export async function getCountsSince(sinceDay: string): Promise<DailyCounts> {
+  return successCounts(sinceDay);
+}
+
+/**
+ * Successes per day for the single daily goal: distinct slugs learned (`learn_log`) or answered ✓ (`card_reviews`)
+ * that day. An algorithm learned and reviewed on one day counts once.
+ */
+async function successCounts(sinceDay: string): Promise<DailyCounts> {
+  const rows = await db.getAllAsync<{ day: string; n: number }>(
+    `SELECT day, COUNT(DISTINCT slug) AS n FROM (
+       SELECT day, slug FROM learn_log WHERE day >= ?
+       UNION SELECT day, slug FROM card_reviews WHERE known = 1 AND day >= ?
+     ) GROUP BY day`,
+    sinceDay,
+    sinceDay,
+  );
+  return Object.fromEntries(rows.map((r) => [r.day, r.n]));
+}
+
+/** Successes per day over the last `days` days (streak, dashboard bars, history). */
+export async function getDailySuccess(days: number, today: Date = new Date()): Promise<DailyCounts> {
+  return successCounts(dayKey(addDays(today, -days + 1)));
 }
 
 // ---------- Stats ----------
@@ -317,9 +466,11 @@ export async function getTodayCount(today: Date = new Date()): Promise<number> {
 }
 
 /** First learn time of each algorithm learned today (distinct slugs), oldest first. */
-export async function getTodayLearned(today: Date = new Date()): Promise<{ ts: number; difficulty: Difficulty }[]> {
-  return db.getAllAsync<{ ts: number; difficulty: Difficulty }>(
-    `SELECT MIN(l.ts) AS ts, a.difficulty
+export async function getTodayLearned(
+  today: Date = new Date(),
+): Promise<{ slug: string; ts: number; difficulty: Difficulty }[]> {
+  return db.getAllAsync<{ slug: string; ts: number; difficulty: Difficulty }>(
+    `SELECT l.slug, MIN(l.ts) AS ts, a.difficulty
      FROM learn_log l JOIN algos a ON a.slug = l.slug
      WHERE l.day = ?
      GROUP BY l.slug

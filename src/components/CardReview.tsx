@@ -10,7 +10,7 @@ import { MarkdownView } from '@/components/MarkdownView';
 import { getAlgoContent } from '@/content';
 import { displayTitle } from '@/content/format';
 import { getCustomSolution } from '@/db/repo';
-import { useQuery } from '@/hooks/use-query';
+import { useLiveQuery } from '@/hooks/use-query';
 import { saveCardWrites } from '@/logic/actions';
 import { answer, boxCounts, browse, dueByBox, type DeckCard, type Session } from '@/logic/leitner';
 import { useColors } from '@/theme';
@@ -32,6 +32,7 @@ export function CardReview({
   onOpen,
   onAnswered,
   caption,
+  unlearned,
 }: {
   session: Session;
   onChange: (session: Session) => void;
@@ -41,6 +42,8 @@ export function CardReview({
   onOpen?: (slug: string) => void;
   onAnswered?: (known: boolean) => void;
   caption?: string;
+  /** Never learned algorithms, for the «не изуч.» pile (left out when undefined, e.g. in the card gate). */
+  unlearned?: number;
 }) {
   const colors = useColors();
   const [flipped, setFlipped] = useState(false);
@@ -70,7 +73,7 @@ export function CardReview({
         <Text style={{ color: colors.textMuted, fontSize: 13 }}>
           {caption ?? (reviewsLeft > 0 ? `К повтору ещё ${reviewsLeft}` : 'По кругу')}
         </Text>
-        <BoxCounts deck={deck} active={current.box ?? 1} capacity={capacity} />
+        <BoxCounts deck={deck} active={current.box ?? 1} capacity={capacity} unlearned={unlearned} />
       </View>
       <FlashCard key={session.step} card={current} flipped={flipped} onOpen={onOpen && (() => onOpen(current.slug))} />
       <View style={[styles.buttons, !browsable && styles.centered]}>
@@ -150,9 +153,19 @@ function ArrowButton({
   );
 }
 
-/** «Ожидают» plus the five boxes, with the cards to review in each. */
-export function BoxCounts({ deck, active, capacity }: { deck: DeckCard[]; active?: number; capacity: number }) {
-  return <CardBoxes {...boxCounts(deck)} due={dueByBox(deck, capacity)} active={active} />;
+/** «Не изуч.» (with `unlearned`), «ждут» plus the five boxes, with the cards to review in each. */
+export function BoxCounts({
+  deck,
+  active,
+  capacity,
+  unlearned,
+}: {
+  deck: DeckCard[];
+  active?: number;
+  capacity: number;
+  unlearned?: number;
+}) {
+  return <CardBoxes unlearned={unlearned} {...boxCounts(deck)} due={dueByBox(deck, capacity)} active={active} />;
 }
 
 /**
@@ -162,7 +175,8 @@ export function BoxCounts({ deck, active, capacity }: { deck: DeckCard[]; active
 function FlashCard({ card, flipped, onOpen }: { card: DeckCard; flipped: boolean; onOpen?: () => void }) {
   const colors = useColors();
   const content = getAlgoContent(card.slug);
-  const custom = useQuery(() => getCustomSolution(card.slug), card.slug);
+  // Live, not focus-based: the card gate renders outside any screen.
+  const custom = useLiveQuery(() => getCustomSolution(card.slug), card.slug);
   const original = content?.solutionTs;
   const [showOriginal, setShowOriginal] = useState(false);
   const canToggle = custom != null && !!original;

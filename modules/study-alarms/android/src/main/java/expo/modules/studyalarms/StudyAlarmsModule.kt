@@ -21,9 +21,12 @@ class AlarmItemRecord : Record {
 /** Planning inputs pushed from JS whenever progress or settings change. */
 class AlarmConfig : Record {
   @Field var enabled: Boolean = false
+  @Field var cardsEnabled: Boolean = true
+  @Field var snoozeMinutes: Int = 10
   @Field var startHour: Int = 9
   @Field var endHour: Int = 21
   @Field var goal: Int = 3
+  @Field var goalTomorrow: Int = 3
   @Field var learnedToday: Int = 0
   @Field var day: String = ""
   @Field var dayStartHour: Int = 0
@@ -31,6 +34,14 @@ class AlarmConfig : Record {
   @Field var cardsLeft: Int = 0
   @Field var cardGoal: Int = 0
   @Field var cardCostMs: Double = 120_000.0
+  @Field var cardDailyGoal: Int = 0
+  @Field var cardsReviewedToday: Int = 0
+  @Field var cardsDue: Int = 0
+  @Field var cardsDueByBox: List<Int> = emptyList()
+  @Field var vibrationKey: String = AlarmStore.DEFAULT_VIBRATION_KEY
+  @Field var vibration: List<Double> = AlarmStore.DEFAULT_VIBRATION.map { it.toDouble() }
+  @Field var vibrationRepeat: Int = 0
+  @Field var sound: String = AlarmRinger.SOUND_DEFAULT
 }
 
 class StudyAlarmsModule : Module() {
@@ -69,8 +80,20 @@ class StudyAlarmsModule : Module() {
       context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
-    Function("testAlarm") {
-      AlarmScheduler.test(context)
+    Function("testAlarm") { kind: String ->
+      AlarmScheduler.test(context, cards = kind == "cards")
+    }
+
+    Function("getAlarmSounds") {
+      AlarmRinger.sounds(context)
+    }
+
+    Function("previewSound") { uri: String ->
+      AlarmRinger.previewSound(context, uri)
+    }
+
+    Function("stopSoundPreview") {
+      AlarmRinger.stopPreview()
     }
   }
 }

@@ -1,62 +1,76 @@
 import type { Difficulty } from '@/content/types';
 
-import { closestToDue, pendingSlugs, type DeckCard } from './leitner';
+import { addDays } from './dates';
+import { pendingSlugs, type DeckCard } from './leitner';
 
 /**
- * Daily flash-card minimum («Карточек в день»). Each distinct card answered ✓ today (also in the card gate) counts
- * once; ✗ only passes the entry gate and leaves the card pending. With fewer cards pending than the minimum, the
- * pending ones are enough; when nothing at all is pending (and no regular card was reviewed today), the `ahead` cards
- * closest to their due day are pulled ahead instead.
+ * The day's single goal («Цель в день»): successful cards. Each distinct card answered ✓ today counts once (also after
+ * an ✗, also in the card gate), and so does each algorithm learned today. What is still to do is taken in priority
+ * order: the reviews pending today (due boxes 2–5, the box-1 rotation and the «ждут» cards refilling it), and only once
+ * those run out, new algorithms from «не изучены». Recomputed on every load; running out of everything counts as done.
  */
-export interface CardDay {
-  /** The setting; 0 = off. */
+export interface StudyDay {
+  /** The goal for today (the setting, changed by a credit). */
   goal: number;
-  /** Distinct cards answered today. */
+  /** Successes today: `reviewed + learned` (distinct). */
+  done: number;
+  /** Distinct cards answered ✓ today. */
   reviewed: number;
-  /** What today asks for: `reviewed + left`, or the goal once it is met. Below the goal when there aren't enough cards. */
-  target: number;
-  /** Cards still to review today. */
+  /** Distinct algorithms learned today. */
+  learned: number;
+  /** Still to do today: `cards + algos` (less than goal − done when there is nothing more to take). */
   left: number;
-  /** Cards to pull ahead of their due day (nothing pending), soonest due first. */
-  ahead: string[];
+  /** Reviews still to do (pending today, not yet answered ✓). */
+  cards: number;
+  /** New algorithms still to learn, after the reviews. */
+  algos: number;
 }
 
-export function cardDay(input: {
+export function studyDay(input: {
   deck: readonly DeckCard[];
-  /** Distinct slugs answered today. */
+  /** Distinct slugs answered ✓ today. */
   reviewed: readonly string[];
-  /** How many of them were pulled ahead. */
-  aheadReviewed: number;
+  /** Distinct slugs learned today. */
+  learned: readonly string[];
   goal: number;
-  /** «Вперёд, если нечего повторять»: cards to pull ahead when nothing is pending. */
-  ahead: number;
   capacity: number;
+  /** Algorithms in «не изучены». */
+  unlearned: number;
   today?: Date;
-}): CardDay {
+}): StudyDay {
   const { deck, goal, today = new Date() } = input;
   const reviewed = new Set(input.reviewed);
-  const n = reviewed.size;
-  const result = (left: number, ahead: string[] = []): CardDay => ({
-    goal,
-    reviewed: n,
-    target: n >= goal ? Math.max(goal, 0) : n + left,
-    left,
-    ahead,
-  });
-  if (goal <= 0 || n >= goal) return result(0);
-
+  const done = new Set([...input.reviewed, ...input.learned]).size;
+  const want = Math.max(0, goal - done);
   const open = pendingSlugs(deck, input.capacity, today).filter((s) => !reviewed.has(s)).length;
-  if (open > 0) return result(Math.min(goal - n, open));
+  const cards = Math.min(want, open);
+  const algos = Math.min(want - cards, Math.max(0, input.unlearned));
+  return {
+    goal,
+    done,
+    reviewed: reviewed.size,
+    learned: new Set(input.learned).size,
+    left: cards + algos,
+    cards,
+    algos,
+  };
+}
 
-  // Nothing pending: pull ahead, unless what was pending today has already been reviewed.
-  if (n - input.aheadReviewed > 0) return result(0);
-  const want = Math.min(goal, input.ahead) - input.aheadReviewed;
-  const ahead = closestToDue(
-    deck.filter((c) => !reviewed.has(c.slug)),
-    want,
-    today,
-  );
-  return result(ahead.length, ahead);
+/**
+ * Tomorrow's split before anything is done (the native fallback when a new day starts before the next sync): the
+ * reviews pending tomorrow first, the rest as new algorithms.
+ */
+export function splitTomorrow(input: {
+  deck: readonly DeckCard[];
+  goal: number;
+  capacity: number;
+  /** «не изучены» tomorrow (today's remaining new algorithms already subtracted). */
+  unlearned: number;
+  today?: Date;
+}): { cards: number; algos: number } {
+  const tomorrow = addDays(input.today ?? new Date(), 1);
+  const cards = Math.min(Math.max(0, input.goal), pendingSlugs(input.deck, input.capacity, tomorrow).length);
+  return { cards, algos: Math.min(Math.max(0, input.goal - cards), Math.max(0, input.unlearned)) };
 }
 
 /** One block of the learning day's plan: an algorithm, or a group of flash cards. */

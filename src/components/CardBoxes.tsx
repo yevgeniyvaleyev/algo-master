@@ -3,17 +3,21 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useColors } from '@/theme';
 
 /**
- * Flash card pile sizes: «ждут» (waiting outside the box) plus boxes 1–5; `active` highlights the current card's box,
+ * Flash card pile sizes: «не изуч.» (never learned, only with `unlearned`), «ждут» (waiting outside the box) plus
+ * boxes 1–5; `active` highlights the current card's box,
  * `wide` stretches the cells to the width. With `due`, boxes 2–5 that have cards due read «10/3», the «/3» smaller
  * and the 3 in orange (box 1 rotates and «ждут» only waits, so they show just their size).
  */
 export function CardBoxes({
+  unlearned,
   waiting,
   boxes,
   active,
   wide,
   due,
 }: {
+  /** Never learned algorithms; the cell is left out when undefined. */
+  unlearned?: number;
   waiting: number;
   boxes: number[];
   active?: number;
@@ -56,6 +60,7 @@ export function CardBoxes({
   );
   return (
     <View style={[styles.row, wide && styles.wideRow]}>
+      {unlearned != null && cell('не изуч.', unlearned, 0, 'u')}
       {cell('ждут', waiting, 0, 'w')}
       {boxes.map((n, i) => cell(String(i + 1), n, i > 0 ? (due?.boxes[i] ?? 0) : 0, String(i), active === i + 1))}
     </View>

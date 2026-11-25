@@ -12,6 +12,10 @@ import java.util.Locale
 object AlarmStore {
   private const val PREFS = "algomaster_study_alarms"
 
+  /** The alarm vibration before it became a setting (JS `standard`, looping); used until JS sends one. */
+  const val DEFAULT_VIBRATION_KEY = "standard"
+  val DEFAULT_VIBRATION = longArrayOf(0, 800, 400, 800, 400)
+
   /** A planned block: an algorithm, or (`kind` = "cards") a group of `count` flash cards. */
   data class Item(
     val slug: String,
@@ -36,6 +40,8 @@ object AlarmStore {
     val startHour: Int,
     val endHour: Int,
     val goal: Int,
+    /** Tomorrow's algorithm goal (a credit being repaid raises it); used once the config is from an earlier day. */
+    val goalTomorrow: Int,
     val learnedToday: Int,
     val day: String,
     val dayStartHour: Int,
@@ -43,6 +49,14 @@ object AlarmStore {
     val cardsLeft: Int,
     val cardGoal: Int,
     val cardCostMs: Long,
+    /** Card-group alarms; `enabled` is the algorithm alarms. Card groups are planned either way. */
+    val cardsEnabled: Boolean = true,
+    val snoozeMinutes: Int = 10,
+    /** For the card alarm screen; refer to `day` like `learnedToday`. */
+    val cardDailyGoal: Int = 0,
+    val cardsReviewedToday: Int = 0,
+    val cardsDue: Int = 0,
+    val cardsDueByBox: List<Int> = emptyList(),
   ) {
     /** `ms` moved back by the day start hour: its calendar day is the app's day. */
     fun logical(ms: Long): Long = ms - dayStartHour * 3_600_000L
@@ -66,6 +80,7 @@ object AlarmStore {
       .putInt("startHour", config.startHour)
       .putInt("endHour", config.endHour)
       .putInt("goal", config.goal)
+      .putInt("goalTomorrow", config.goalTomorrow)
       .putInt("learned", config.learnedToday)
       .putString("day", config.day)
       .putInt("dayStartHour", config.dayStartHour)
@@ -73,8 +88,29 @@ object AlarmStore {
       .putInt("cardsLeft", config.cardsLeft)
       .putInt("cardGoal", config.cardGoal)
       .putLong("cardCostMs", config.cardCostMs.toLong())
+      .putBoolean("cardsEnabled", config.cardsEnabled)
+      .putInt("snoozeMinutes", config.snoozeMinutes)
+      .putInt("cardDailyGoal", config.cardDailyGoal)
+      .putInt("cardsReviewedToday", config.cardsReviewedToday)
+      .putInt("cardsDue", config.cardsDue)
+      .putString("cardsDueByBox", JSONArray(config.cardsDueByBox).toString())
+      .putString("vibrationKey", config.vibrationKey)
+      .putString("vibration", JSONArray(config.vibration.map { it.toLong() }).toString())
+      .putInt("vibrationRepeat", config.vibrationRepeat)
+      .putString("sound", config.sound)
       .apply()
   }
+
+  /** The alarm's vibration waveform (ms, wait first; empty = none) and the index it loops from (-1 = no loop). */
+  fun vibration(ctx: Context): Pair<LongArray, Int> {
+    val p = prefs(ctx)
+    if (p.getString("vibrationKey", null) == null) return DEFAULT_VIBRATION to 0
+    val json = JSONArray(p.getString("vibration", "[]"))
+    return LongArray(json.length()) { json.getLong(it) } to p.getInt("vibrationRepeat", 0)
+  }
+
+  /** The alarm sound setting: AlarmRinger.SOUND_DEFAULT, SOUND_SILENT or a ringtone URI. */
+  fun sound(ctx: Context): String = prefs(ctx).getString("sound", AlarmRinger.SOUND_DEFAULT) ?: AlarmRinger.SOUND_DEFAULT
 
   fun read(ctx: Context): Config {
     val p = prefs(ctx)
@@ -88,6 +124,7 @@ object AlarmStore {
       startHour = p.getInt("startHour", 9),
       endHour = p.getInt("endHour", 21),
       goal = p.getInt("goal", 3),
+      goalTomorrow = p.getInt("goalTomorrow", p.getInt("goal", 3)),
       learnedToday = p.getInt("learned", 0),
       day = p.getString("day", "") ?: "",
       dayStartHour = p.getInt("dayStartHour", 0),
@@ -95,11 +132,23 @@ object AlarmStore {
       cardsLeft = p.getInt("cardsLeft", 0),
       cardGoal = p.getInt("cardGoal", 0),
       cardCostMs = p.getLong("cardCostMs", 2 * 60_000L),
+      cardsEnabled = p.getBoolean("cardsEnabled", true),
+      snoozeMinutes = p.getInt("snoozeMinutes", 10),
+      cardDailyGoal = p.getInt("cardDailyGoal", 0),
+      cardsReviewedToday = p.getInt("cardsReviewedToday", 0),
+      cardsDue = p.getInt("cardsDue", 0),
+      cardsDueByBox = JSONArray(p.getString("cardsDueByBox", "[]")).let { a -> (0 until a.length()).map { a.getInt(it) } },
     )
   }
 
+  /** Today's algorithm goal; a config written on an earlier day asks for tomorrow's (credit installments included). */
+  fun goalToday(config: Config): Int = if (config.day == today(config)) config.goal else config.goalTomorrow
+
   /** Learned today; a config written on an earlier day counts as 0. */
   fun learnedToday(config: Config): Int = if (config.day == today(config)) config.learnedToday else 0
+
+  /** Cards answered ✓ today, for the alarm screen; 0 when the config was written on an earlier day. */
+  fun cardsReviewedToday(config: Config): Int = if (config.day == today(config)) config.cardsReviewedToday else 0
 
   /** Flash cards still to review today; a config written on an earlier day asks for the whole card goal. */
   fun cardsLeftToday(config: Config): Int = if (config.day == today(config)) config.cardsLeft else config.cardGoal

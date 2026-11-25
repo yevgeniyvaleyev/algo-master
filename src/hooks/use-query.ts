@@ -30,3 +30,29 @@ export function useQuery<T>(fn: () => Promise<T>, key: string = ''): T | undefin
 
   return data;
 }
+
+/**
+ * Like `useQuery`, but without focus handling: runs on mount, on `key` changes and after every data mutation. Use it in
+ * components that may render outside a navigator screen (the card gate covers the app from the root layout), where
+ * `useFocusEffect` never fires.
+ */
+export function useLiveQuery<T>(fn: () => Promise<T>, key: string = ''): T | undefined {
+  const version = useDataVersion((s) => s.version);
+  const [data, setData] = useState<T>();
+  const fnRef = useRef(fn);
+  useEffect(() => {
+    fnRef.current = fn;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    fnRef.current().then((result) => {
+      if (!cancelled) setData(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [version, key]);
+
+  return data;
+}

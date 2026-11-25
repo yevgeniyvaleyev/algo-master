@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { DifficultyBadge } from '@/components/DifficultyBadge';
 import { PickerModal } from '@/components/PickerModal';
@@ -10,6 +10,7 @@ import { UNCATEGORIZED_KEY } from '@/db/client';
 import { listTopicsWithAlgos, type AlgoRow, type TopicWithAlgos } from '@/db/repo';
 import { useQuery } from '@/hooks/use-query';
 import { createTopic, deleteTopic, moveAlgo, renameTopic, setLearnedMany } from '@/logic/actions';
+import { matchesQuery } from '@/logic/search';
 import { useSettings } from '@/store/settings';
 import { useColors } from '@/theme';
 
@@ -26,6 +27,8 @@ export default function AlgosScreen() {
   const colors = useColors();
   const topics = useQuery(listTopicsWithAlgos);
   const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
+  const searching = query.trim() !== '';
   // Manual overrides are persisted; otherwise a topic is collapsed once all its algos are learned.
   const collapsedTopics = useSettings((s) => s.collapsedTopics);
   const updateSettings = useSettings((s) => s.update);
@@ -56,21 +59,23 @@ export default function AlgosScreen() {
     [collapsedTopics],
   );
 
-  const sections = useMemo(
-    () =>
-      (topics ?? []).map((topic) => ({
-        topic,
-        data: isCollapsed(topic)
-          ? []
-          : filter === 'pending'
-            ? topic.algos.filter((a) => a.learnedAt == null)
-            : topic.algos,
-      })),
-    [topics, isCollapsed, filter],
-  );
+  const sections = useMemo(() => {
+    const shown = (a: AlgoRow) => filter === 'all' || a.learnedAt == null;
+    // While searching, matches show even in collapsed topics, and topics without matches are hidden.
+    if (searching)
+      return (topics ?? [])
+        .map((topic) => ({ topic, data: topic.algos.filter((a) => shown(a) && matchesQuery(a, query)) }))
+        .filter((s) => s.data.length > 0);
+    return (topics ?? []).map((topic) => ({ topic, data: isCollapsed(topic) ? [] : topic.algos.filter(shown) }));
+  }, [topics, isCollapsed, filter, searching, query]);
 
   const toggleCollapsed = (topic: TopicWithAlgos) =>
     updateSettings({ collapsedTopics: { ...collapsedTopics, [topic.id]: !isCollapsed(topic) } });
+
+  // Expand / collapse all: collapses everything while any topic is open, otherwise opens them all.
+  const anyOpen = (topics ?? []).some((t) => !isCollapsed(t));
+  const setAllCollapsed = (collapsed: boolean) =>
+    updateSettings({ collapsedTopics: Object.fromEntries((topics ?? []).map((t) => [t.id, collapsed])) });
 
   const confirmDelete = (topic: TopicWithAlgos) =>
     Alert.alert(
@@ -86,6 +91,24 @@ export default function AlgosScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Ionicons name="search" size={18} color={colors.textMuted} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Поиск по названию или номеру"
+          placeholderTextColor={colors.textMuted}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="search"
+          style={[styles.searchInput, { color: colors.text }]}
+        />
+        {query !== '' && (
+          <Pressable hitSlop={10} onPress={() => setQuery('')} accessibilityLabel="Очистить поиск">
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+          </Pressable>
+        )}
+      </View>
       <View style={styles.filters}>
         {(['all', 'pending'] as const).map((f) => (
           <Pressable
@@ -102,6 +125,16 @@ export default function AlgosScreen() {
           </Pressable>
         ))}
         <View style={styles.spacer} />
+        {!searching && (topics?.length ?? 0) > 0 && (
+          <Pressable
+            onPress={() => setAllCollapsed(anyOpen)}
+            accessibilityLabel={anyOpen ? 'Свернуть все темы' : 'Развернуть все темы'}
+            hitSlop={6}
+            style={[styles.chip, styles.iconChip, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          >
+            <Ionicons name={anyOpen ? 'chevron-collapse' : 'chevron-expand'} size={18} color={colors.text} />
+          </Pressable>
+        )}
         {!bulk && (
           <Pressable
             onPress={() => setPending(new Set())}
@@ -117,6 +150,8 @@ export default function AlgosScreen() {
         sections={sections}
         keyExtractor={(a) => a.slug}
         stickySectionHeadersEnabled
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentContainerStyle={styles.listContent}
         renderSectionHeader={({ section: { topic } }) => (
           <Pressable
@@ -184,7 +219,11 @@ export default function AlgosScreen() {
             </Pressable>
           );
         }}
-        ListEmptyComponent={<Text style={[styles.empty, { color: colors.textMuted }]}>Нет алгоритмов</Text>}
+        ListEmptyComponent={
+          <Text style={[styles.empty, { color: colors.textMuted }]}>
+            {searching ? 'Ничего не найдено' : 'Нет алгоритмов'}
+          </Text>
+        }
       />
 
       {bulk ? (
@@ -260,10 +299,22 @@ export default function AlgosScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 9 },
   filters: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
   spacer: { flex: 1 },
   bulkChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  iconChip: { paddingHorizontal: 10, justifyContent: 'center' },
   bulkBar: {
     position: 'absolute',
     left: 12,

@@ -1,4 +1,7 @@
+import { File, Paths } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
+
+import { parseBackup, rowForSchema, type Backup } from '@/logic/backup';
 
 // Fast Refresh re-runs this module after edits; opening a second connection releases the first one while other
 // modules still hold it ("Cannot use shared object that was already released"). Keep one per JS runtime.
@@ -7,7 +10,7 @@ export const db = (cache.__algomasterDb ??= SQLite.openDatabaseSync('algomaster.
 
 export const UNCATEGORIZED_KEY = '__uncategorized__';
 
-const DATABASE_VERSION = 7;
+export const DATABASE_VERSION = 10;
 
 /** How long a statement waits for another connection's write lock before failing with "database is locked". */
 const BUSY_TIMEOUT_MS = 5_000;
@@ -27,7 +30,7 @@ export async function writeTransaction(task: (tx: SQLite.SQLiteDatabase) => Prom
 const RESET_KEY = 'resetPending';
 
 /**
- * Asks for everything this app stored to be erased (progress, logs, cards, custom solutions, settings in `kv`). The
+ * Asks for everything this app stored to be erased (progress, logs, cards, custom solutions, notes, settings in `kv`). The
  * tables are dropped on the next start, before anything else touches the database, so nothing running now hits a
  * missing table. The app must be restarted afterwards.
  */
@@ -35,21 +38,91 @@ export async function requestReset(): Promise<void> {
   await kvSet(RESET_KEY, true);
 }
 
-async function resetIfRequested(): Promise<void> {
-  const hasKv = await db.getFirstAsync("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kv'");
-  if (!hasKv || !(await kvGet<boolean>(RESET_KEY))) return;
-  const tables = await db.getAllAsync<{ name: string }>(
+/** All user tables (everything but SQLite's own). */
+export async function tableNames(): Promise<string[]> {
+  const rows = await db.getAllAsync<{ name: string }>(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
   );
+  return rows.map((r) => r.name);
+}
+
+async function dropAllTables(): Promise<void> {
+  const tables = await tableNames();
   await writeTransaction(async (tx) => {
-    for (const { name } of tables) await tx.execAsync(`DROP TABLE IF EXISTS "${name}"`);
+    for (const name of tables) await tx.execAsync(`DROP TABLE IF EXISTS "${name}"`);
   });
   await db.execAsync('PRAGMA user_version = 0');
+}
+
+async function resetIfRequested(): Promise<void> {
+  const hasKv = await db.getFirstAsync("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kv'");
+  if (hasKv && (await kvGet<boolean>(RESET_KEY))) await dropAllTables();
+}
+
+/**
+ * Backup waiting to be restored (written by `requestRestore` in `src/db/backup.ts`). Like a reset, a restore is applied
+ * on the next start before anything else touches the database.
+ */
+export const pendingRestoreFile = () => new File(Paths.document, 'restore-pending.json');
+/** kv key with the error of the last failed restore (shown in Settings). */
+export const RESTORE_ERROR_KEY = 'restoreError';
+
+function takePendingRestore(): Backup | null {
+  const file = pendingRestoreFile();
+  if (!file.exists) return null;
+  const parsed = parseBackup(file.textSync(), DATABASE_VERSION);
+  if (parsed.ok) return parsed.backup;
+  file.delete();
+  return null;
+}
+
+/** Replaces the freshly migrated tables' rows with the backup's (only columns the current schema has). */
+async function applyRestore(backup: Backup): Promise<void> {
+  const existing = new Set(await tableNames());
+  const columns = new Map<string, string[]>();
+  for (const name of Object.keys(backup.tables)) {
+    if (!existing.has(name)) continue;
+    const info = await db.getAllAsync<{ name: string }>(`PRAGMA table_info("${name}")`);
+    columns.set(
+      name,
+      info.map((c) => c.name),
+    );
+  }
+  await writeTransaction(async (tx) => {
+    for (const [name, cols] of columns) {
+      await tx.runAsync(`DELETE FROM "${name}"`);
+      for (const row of backup.tables[name]) {
+        const r = rowForSchema(row, cols);
+        if (r.columns.length === 0) continue;
+        await tx.runAsync(
+          `INSERT INTO "${name}" (${r.columns.map((c) => `"${c}"`).join(', ')}) VALUES (${r.columns.map(() => '?').join(', ')})`,
+          r.values as SQLite.SQLiteBindValue[],
+        );
+      }
+    }
+  });
 }
 
 export async function migrate(): Promise<void> {
   await db.execAsync(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
   await resetIfRequested();
+  const restore = takePendingRestore();
+  if (restore) await dropAllTables();
+  await runMigrations();
+  if (!restore) return;
+  try {
+    await applyRestore(restore);
+    pendingRestoreFile().delete();
+    await kvSet(RESTORE_ERROR_KEY, null);
+  } catch (e) {
+    // Rolled back: start empty rather than retry a broken restore on every start. The pre-restore safety copy is in
+    // the internal backups folder.
+    pendingRestoreFile().delete();
+    await kvSet(RESTORE_ERROR_KEY, String(e));
+  }
+}
+
+async function runMigrations(): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let version = row?.user_version ?? 0;
   if (version >= DATABASE_VERSION) return;
@@ -171,6 +244,44 @@ CREATE TABLE card_reviews (
 CREATE INDEX card_reviews_day ON card_reviews(day);
 `);
     version = 7;
+  }
+
+  if (version === 7) {
+    // The user's own notes per algorithm (e.g. an explanation pasted from a chat assistant), Markdown.
+    await db.execAsync(`
+CREATE TABLE notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL,
+  title TEXT,
+  body TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX notes_slug ON notes(slug);
+`);
+    version = 8;
+  }
+
+  if (version === 8) {
+    // «Взять в долг»: algorithms / cards moved from `day` to the next `days` days (repayment is computed, see credit.ts).
+    await db.execAsync(`
+CREATE TABLE credits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  day TEXT NOT NULL,
+  algos INTEGER NOT NULL,
+  cards INTEGER NOT NULL,
+  days INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+`);
+    version = 9;
+  }
+
+  if (version === 9) {
+    // Every algorithm is a card now and marks no longer expire: drop boxes left behind by unmarked algorithms, so a
+    // relearned one starts in «ждут» again.
+    await db.execAsync('DELETE FROM cards WHERE slug NOT IN (SELECT slug FROM progress);');
+    version = 10;
   }
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
